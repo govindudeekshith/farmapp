@@ -8,180 +8,211 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f0; color: #1a2e1a; min-height: 100vh; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #f0f4f0; color: #1a2e1a; }
 
-  header { background: #1a6b3a; color: white; padding: 12px 16px; display: flex; align-items: center; gap: 10px; }
-  header .logo { font-size: 20px; }
-  .farmer-name { font-size: 15px; font-weight: 600; }
-  .farmer-village { font-size: 12px; opacity: 0.75; }
+header { background: #1a6b3a; color: white; padding: 12px 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
+.h-name { font-size: 15px; font-weight: 700; }
+.h-village { font-size: 12px; opacity: 0.75; }
 
-  .images-section { padding: 14px; }
-  .section-title { font-size: 13px; font-weight: 600; color: #444; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.section { padding: 14px 14px 0; }
+.section-title { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
 
-  .image-cards { display: flex; flex-direction: column; gap: 12px; }
-  .image-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.09); }
-  .image-card img { width: 100%; display: block; max-height: 240px; object-fit: cover; cursor: pointer; }
-  .image-card-meta { padding: 10px 14px; display: flex; align-items: center; gap: 10px; }
-  .meta-text { flex: 1; }
-  .meta-date { font-size: 13px; font-weight: 600; color: #1a2e1a; }
-  .meta-notes { font-size: 12px; color: #666; margin-top: 2px; }
-  .btn-row { display: flex; gap: 8px; }
-  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 14px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; }
-  .btn-nav { background: #1a6b3a; color: white; }
-  .btn-nav:hover { background: #155c30; }
-  .btn-dl { background: #e8f4ec; color: #1a6b3a; }
-  .btn-dl:hover { background: #d0ecd8; }
+.img-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,0.09); margin-bottom: 12px; }
+.img-card img { width: 100%; display: block; cursor: pointer; }
+.img-card-foot { padding: 10px 14px 12px; display: flex; align-items: center; gap: 10px; }
+.img-date { font-size: 13px; font-weight: 600; flex: 1; }
+.img-notes { font-size: 12px; color: #666; }
+.tag-latest { font-size: 10px; background: #e8f4ec; color: #1a6b3a; padding: 2px 7px; border-radius: 20px; font-weight: 600; margin-left: 6px; }
+.btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 13px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; text-decoration: none; }
+.btn-nav { background: #1a6b3a; color: white; }
+.btn-dl { background: #e8f4ec; color: #1a6b3a; }
+.btns { display: flex; gap: 7px; }
 
-  /* FULLSCREEN VIEWER */
-  .viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
-  .viewer.open { display: flex; }
-  .viewer-header { background: rgba(0,0,0,0.85); padding: 12px 14px; display: flex; align-items: center; gap: 10px; }
-  .viewer-title { color: white; font-size: 14px; font-weight: 600; flex: 1; }
-  .viewer-close { background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-  .viewer-toggle { background: #1a6b3a; color: white; border: none; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; font-weight: 600; }
+/* FULLSCREEN VIEWER */
+#viewer { display: none; position: fixed; inset: 0; background: #111; z-index: 500; flex-direction: column; }
+#viewer.open { display: flex; }
 
-  /* IMAGE NAV VIEW */
-  #imageNavContainer { flex: 1; position: relative; display: none; overflow: hidden; touch-action: none; }
-  #imageNavContainer.active { display: block; }
-  #navCanvas { width: 100%; height: 100%; display: block; }
-  .gps-status { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; font-size: 12px; padding: 6px 10px; border-radius: 8px; }
-  .gps-status.good { background: rgba(26,107,58,0.9); }
-  .gps-status.bad { background: rgba(180,30,30,0.85); }
+.vbar { background: rgba(0,0,0,0.88); padding: 10px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.vtitle { color: white; font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vtoggle { background: #1a6b3a; color: white; border: none; border-radius: 7px; padding: 6px 11px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.vclose { background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 7px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
 
-  /* MAP NAV VIEW */
-  #mapNavContainer { flex: 1; display: none; }
-  #mapNavContainer.active { display: block; }
-  #navMap { width: 100%; height: 100%; }
+/* IMAGE MODE — canvas fills the rest */
+#imgMode { flex: 1; position: relative; display: flex; flex-direction: column; }
+#imgMode.hidden { display: none; }
+#navCanvas { display: block; width: 100%; flex: 1; }
 
-  .empty-state { text-align: center; padding: 48px 24px; color: #888; }
-  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
-  .empty-state p { font-size: 14px; }
+/* GPS pill floating top-left */
+#gpsPill { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.72); color: white; font-size: 12px; padding: 5px 11px; border-radius: 20px; pointer-events: none; }
+#gpsPill.gd { background: rgba(22,100,50,0.92); }
+#gpsPill.bd { background: rgba(170,30,30,0.88); }
 
-  .loading-state { text-align: center; padding: 48px 24px; color: #888; font-size: 14px; }
+/* compass help text at bottom of image mode */
+#imgHelp { background: rgba(0,0,0,0.7); color: rgba(255,255,255,0.75); font-size: 11px; text-align: center; padding: 6px; flex-shrink: 0; }
 
-  .tag { font-size: 11px; background: #e8f4ec; color: #1a6b3a; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+/* MAP MODE */
+#mapMode { flex: 1; display: none; }
+#mapMode.active { display: block; }
+#navMap { width: 100%; height: 100%; }
+
+/* empty / error */
+.empty { text-align: center; padding: 60px 24px; color: #888; }
+.empty .ico { font-size: 52px; margin-bottom: 12px; }
+.empty p { font-size: 14px; line-height: 1.6; }
 </style>
 </head>
 <body>
 
 <header>
-  <span class="logo">🌾</span>
+  <span style="font-size:22px">🌾</span>
   <div>
-    <div class="farmer-name" id="headerName">Loading...</div>
-    <div class="farmer-village" id="headerVillage"></div>
+    <div class="h-name" id="hName">Loading…</div>
+    <div class="h-village" id="hVillage"></div>
   </div>
 </header>
 
-<div class="images-section">
-  <div class="section-title">Your Field Reports</div>
-  <div class="image-cards" id="imageCards">
-    <div class="loading-state">Loading your field data...</div>
-  </div>
+<div class="section">
+  <div class="section-title">Field Reports</div>
+  <div id="cards"><div class="empty"><div class="ico">⏳</div><p>Loading your field data…</p></div></div>
 </div>
 
 <!-- FULLSCREEN VIEWER -->
-<div class="viewer" id="viewer">
-  <div class="viewer-header">
-    <div class="viewer-title" id="viewerTitle">Field Index</div>
-    <button class="viewer-toggle" id="toggleViewBtn" onclick="toggleNavView()">🗺 Map View</button>
-    <button class="viewer-close" onclick="closeViewer()">✕ Close</button>
+<div id="viewer">
+  <div class="vbar">
+    <div class="vtitle" id="vtitle">Field Index</div>
+    <button class="vtoggle" id="vtoggleBtn" onclick="toggleView()">🗺 Map View</button>
+    <button class="vclose" onclick="closeViewer()">✕</button>
   </div>
 
-  <!-- IMAGE NAV -->
-  <div id="imageNavContainer" class="active">
+  <!-- IMAGE MODE -->
+  <div id="imgMode">
     <canvas id="navCanvas"></canvas>
-    <div class="gps-status" id="gpsStatus">📡 Getting GPS...</div>
+    <div id="gpsPill">📡 Getting GPS…</div>
+    <div id="imgHelp">🟢 Green dot = your position on the field index map</div>
   </div>
 
-  <!-- MAP NAV -->
-  <div id="mapNavContainer">
+  <!-- MAP MODE (satellite/OSM with polygon outline) -->
+  <div id="mapMode">
     <div id="navMap"></div>
   </div>
 </div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────
+// ── CONFIG ────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://xkvjimbtjfkvbxrrurit.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrdmppbWJ0amZrdmJ4cnJ1cml0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDYwMDQsImV4cCI6MjA5NjkyMjAwNH0.0ppKgbzs4QtdjHKHQGiZHRSXhYH3Wb_lTnpTOYh0ypY';
-
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let farmer = null;
-let polygon = [];
-let currentImageUrl = '';
-let currentImageDate = '';
+// ── STATE ─────────────────────────────────────────────────────
+let polygon = [];       // [[lat,lng], ...] from farmer's KML
+let curMode = 'image';  // 'image' | 'map'
+let lastGPS = null;
 let gpsWatcher = null;
 let navMap = null;
 let gpsMarker = null;
-let currentView = 'image'; // 'image' or 'map'
-let img = new Image();
-let lastGPS = null;
+let mapPolyDrawn = false;
+let navImg = new Image();
+let imgLoaded = false;
 
-// ── LOAD DATA ────────────────────────────────────────────────
+// ── BOOT ──────────────────────────────────────────────────────
 async function init() {
   const params = new URLSearchParams(window.location.search);
-  const farmerId = params.get('id');
-  if (!farmerId) { showError('Invalid link. Please contact your coordinator.'); return; }
+  const id = params.get('id');
+  if (!id) { showErr('Invalid link — contact your coordinator.'); return; }
 
-  const { data: farmerData, error: fe } = await sb.from('farmers').select('*').eq('id', farmerId).single();
-  if (fe || !farmerData) { showError('Farmer not found.'); return; }
-  farmer = farmerData;
+  // Load farmer
+  const { data: farmer, error: fe } = await sb
+    .from('farmers').select('*').eq('id', id).single();
 
-  document.getElementById('headerName').textContent = farmer.name;
-  document.getElementById('headerVillage').textContent = farmer.village;
-  document.title = `${farmer.name} — FarmView`;
+  if (fe || !farmer) {
+    showErr('Farmer profile not found.<br>Please contact your coordinator.');
+    return;
+  }
+
+  document.getElementById('hName').textContent = farmer.name;
+  document.getElementById('hVillage').textContent = farmer.village;
+  document.title = farmer.name + ' — FarmView';
 
   if (farmer.polygon_coords) {
     try { polygon = JSON.parse(farmer.polygon_coords); } catch(e) { polygon = []; }
   }
 
-  const { data: images, error: ie } = await sb.from('farm_images')
-    .select('*').eq('farmer_id', farmerId).order('uploaded_at', { ascending: false });
+  // Load images
+  const { data: images, error: ie } = await sb
+    .from('farm_images').select('*')
+    .eq('farmer_id', id)
+    .order('uploaded_at', { ascending: false });
 
-  if (ie || !images.length) {
-    document.getElementById('imageCards').innerHTML = `
-      <div class="empty-state">
-        <div class="icon">🌱</div>
-        <p>No field reports uploaded yet.<br>Check back soon!</p>
-      </div>`;
+  if (ie || !images || images.length === 0) {
+    document.getElementById('cards').innerHTML =
+      `<div class="empty"><div class="ico">🌱</div><p>No field reports yet.<br>Check back after the next survey!</p></div>`;
     return;
   }
 
-  renderImages(images);
+  renderCards(images);
 }
 
-function renderImages(images) {
-  const container = document.getElementById('imageCards');
-  container.innerHTML = images.map((img, i) => `
-    <div class="image-card">
-      <img src="${img.image_url}" loading="${i === 0 ? 'eager' : 'lazy'}" onclick="openViewer('${img.image_url}', '${formatDate(img.uploaded_at)}')">
-      <div class="image-card-meta">
-        <div class="meta-text">
-          <div class="meta-date">📅 ${formatDate(img.uploaded_at)} ${i===0 ? '<span class="tag">Latest</span>' : ''}</div>
-          ${img.notes ? `<div class="meta-notes">${img.notes}</div>` : ''}
+function renderCards(images) {
+  document.getElementById('cards').innerHTML = images.map((img, i) => {
+    const dateStr = fmtDate(img.uploaded_at);
+    return `
+    <div class="img-card">
+      <img src="${img.image_url}" loading="${i===0?'eager':'lazy'}"
+           onclick="openViewer('${img.image_url}','${dateStr}')">
+      <div class="img-card-foot">
+        <div style="flex:1">
+          <div class="img-date">
+            📅 ${dateStr}
+            ${i===0 ? '<span class="tag-latest">Latest</span>' : ''}
+          </div>
+          ${img.notes ? `<div class="img-notes">${img.notes}</div>` : ''}
         </div>
-        <div class="btn-row">
-          <button class="btn btn-nav" onclick="openViewer('${img.image_url}', '${formatDate(img.uploaded_at)}')">📍 Navigate</button>
-          <a class="btn btn-dl" href="${img.image_url}" download target="_blank">⬇</a>
+        <div class="btns">
+          <button class="btn btn-nav" onclick="openViewer('${img.image_url}','${dateStr}')">📍 Navigate</button>
+          <a class="btn btn-dl" href="${img.image_url}" target="_blank" download>⬇</a>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
-function formatDate(iso) {
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
 }
 
-// ── VIEWER ───────────────────────────────────────────────────
-function openViewer(imageUrl, dateStr) {
-  currentImageUrl = imageUrl;
-  currentImageDate = dateStr;
-  document.getElementById('viewerTitle').textContent = `Field Index — ${dateStr}`;
+// ── VIEWER OPEN / CLOSE ───────────────────────────────────────
+function openViewer(url, dateStr) {
+  document.getElementById('vtitle').textContent = 'Index Map — ' + dateStr;
   document.getElementById('viewer').classList.add('open');
-  currentView = 'image';
-  showImageNav();
+  curMode = 'image';
+  document.getElementById('vtoggleBtn').textContent = '🗺 Map View';
+  document.getElementById('imgMode').classList.remove('hidden');
+  document.getElementById('mapMode').classList.remove('active');
+
+  // Load the index image onto canvas
+  imgLoaded = false;
+  navImg = new Image();
+  navImg.crossOrigin = 'anonymous';
+  navImg.onload = () => {
+    imgLoaded = true;
+    fitCanvas();
+    drawFrame();
+  };
+  navImg.onerror = () => {
+    // If CORS blocks canvas, fall back to <img> display
+    imgLoaded = false;
+    const canvas = document.getElementById('navCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Image loading…', canvas.width/2, canvas.height/2);
+  };
+  navImg.src = url;
+
   startGPS();
 }
 
@@ -190,179 +221,202 @@ function closeViewer() {
   stopGPS();
 }
 
-function toggleNavView() {
-  if (currentView === 'image') {
-    currentView = 'map';
-    showMapNav();
-    document.getElementById('toggleViewBtn').textContent = '🖼 Image View';
+// ── TOGGLE IMAGE ↔ MAP ────────────────────────────────────────
+function toggleView() {
+  if (curMode === 'image') {
+    curMode = 'map';
+    document.getElementById('vtoggleBtn').textContent = '🖼 Index View';
+    document.getElementById('imgMode').classList.add('hidden');
+    document.getElementById('mapMode').classList.add('active');
+    initMapView();
   } else {
-    currentView = 'image';
-    showImageNav();
-    document.getElementById('toggleViewBtn').textContent = '🗺 Map View';
+    curMode = 'image';
+    document.getElementById('vtoggleBtn').textContent = '🗺 Map View';
+    document.getElementById('imgMode').classList.remove('hidden');
+    document.getElementById('mapMode').classList.remove('active');
+    drawFrame();
   }
 }
 
-// ── IMAGE NAV ────────────────────────────────────────────────
-function showImageNav() {
-  document.getElementById('imageNavContainer').classList.add('active');
-  document.getElementById('mapNavContainer').classList.remove('active');
-  loadNavImage();
+// ── IMAGE MODE — the key feature ─────────────────────────────
+/*
+  HOW GPS-ON-INDEX-IMAGE WORKS:
+  ─────────────────────────────
+  1. We have the farmer's plot polygon as GPS coordinates (lat/lng).
+  2. We compute the bounding box of that polygon (min/max lat and lng).
+  3. The index screenshot is assumed to cover exactly that bounding box
+     (because you took the screenshot of just that field in Pix4DFields).
+  4. We map any GPS point into image pixel coordinates using simple
+     linear interpolation:
+       pixel_x = (lng - minLng) / (maxLng - minLng) * imageWidth
+       pixel_y = (maxLat - lat) / (maxLat - minLat) * imageHeight
+     (Y is flipped because latitude increases upward but pixels go down)
+  5. We draw a glowing dot at that pixel position on the canvas.
+  6. This updates every time the GPS changes (~every 3 seconds while walking).
+  Result: farmer sees their exact position on the colour index map.
+*/
+
+function fitCanvas() {
+  const canvas = document.getElementById('navCanvas');
+  const cont = document.getElementById('imgMode');
+  // canvas fills available space
+  canvas.width = cont.clientWidth;
+  canvas.height = cont.clientHeight - document.getElementById('imgHelp').offsetHeight;
 }
 
-function loadNavImage() {
+function drawFrame() {
   const canvas = document.getElementById('navCanvas');
   const ctx = canvas.getContext('2d');
-  img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    resizeCanvas();
-    drawNavImage();
-    if (lastGPS) drawGPSDot(lastGPS.lat, lastGPS.lng);
-  };
-  img.src = currentImageUrl;
-}
+  const W = canvas.width, H = canvas.height;
 
-function resizeCanvas() {
-  const canvas = document.getElementById('navCanvas');
-  const container = document.getElementById('imageNavContainer');
-  canvas.width = container.clientWidth;
-  canvas.height = container.clientHeight;
-}
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0,0,W,H);
 
-function drawNavImage() {
-  const canvas = document.getElementById('navCanvas');
-  const ctx = canvas.getContext('2d');
-  const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-  const w = img.width * scale;
-  const h = img.height * scale;
-  const x = (canvas.width - w) / 2;
-  const y = (canvas.height - h) / 2;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#000';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, x, y, w, h);
-  canvas._imgBounds = { x, y, w, h };
-}
+  if (!imgLoaded) return;
 
-function drawGPSDot(lat, lng) {
-  if (!polygon.length) return;
-  const canvas = document.getElementById('navCanvas');
-  const ctx = canvas.getContext('2d');
-  const bounds = canvas._imgBounds;
-  if (!bounds) return;
-
-  // Get polygon bounding box
-  const lats = polygon.map(p => p[0]);
-  const lngs = polygon.map(p => p[1]);
-  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-
-  // Map GPS to image pixel
-  const px = bounds.x + ((lng - minLng) / (maxLng - minLng)) * bounds.w;
-  const py = bounds.y + ((maxLat - lat) / (maxLat - minLat)) * bounds.h;
-
-  // Redraw image first
-  drawNavImage();
+  // Fit image maintaining aspect ratio
+  const scale = Math.min(W / navImg.width, H / navImg.height);
+  const iw = navImg.width * scale;
+  const ih = navImg.height * scale;
+  const ix = (W - iw) / 2;
+  const iy = (H - ih) / 2;
+  ctx.drawImage(navImg, ix, iy, iw, ih);
+  canvas._b = { ix, iy, iw, ih }; // store for GPS mapping
 
   // Draw polygon outline on image
   if (polygon.length >= 3) {
+    const b = getBBox();
     ctx.beginPath();
     polygon.forEach((pt, i) => {
-      const ppx = bounds.x + ((pt[1] - minLng) / (maxLng - minLng)) * bounds.w;
-      const ppy = bounds.y + ((maxLat - pt[0]) / (maxLat - minLat)) * bounds.h;
-      i === 0 ? ctx.moveTo(ppx, ppy) : ctx.lineTo(ppx, ppy);
+      const [px, py] = gpsToPixel(pt[0], pt[1], b, canvas._b);
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
     });
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(255,255,100,0.85)';
+    ctx.strokeStyle = 'rgba(255,240,60,0.9)';
     ctx.lineWidth = 2;
+    ctx.setLineDash([6,4]);
     ctx.stroke();
+    ctx.setLineDash([]);
   }
 
-  // Draw GPS dot
-  const inBounds = lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+  // Draw GPS dot if we have a fix
+  if (lastGPS) drawDot(ctx, lastGPS.lat, lastGPS.lng, canvas._b);
+}
+
+function getBBox() {
+  const lats = polygon.map(p => p[0]);
+  const lngs = polygon.map(p => p[1]);
+  return {
+    minLat: Math.min(...lats), maxLat: Math.max(...lats),
+    minLng: Math.min(...lngs), maxLng: Math.max(...lngs)
+  };
+}
+
+function gpsToPixel(lat, lng, bbox, imgBounds) {
+  const { minLat, maxLat, minLng, maxLng } = bbox;
+  const { ix, iy, iw, ih } = imgBounds;
+  const px = ix + ((lng - minLng) / (maxLng - minLng)) * iw;
+  const py = iy + ((maxLat - lat) / (maxLat - minLat)) * ih;
+  return [px, py];
+}
+
+function drawDot(ctx, lat, lng, imgBounds) {
+  if (!polygon.length) return;
+  const b = getBBox();
+  const [px, py] = gpsToPixel(lat, lng, b, imgBounds);
+  const inside = lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng;
+  const col = inside ? '#00e676' : '#ff5252';
+
+  // Outer glow
   ctx.beginPath();
-  ctx.arc(px, py, 12, 0, Math.PI * 2);
-  ctx.fillStyle = inBounds ? 'rgba(0,200,100,0.3)' : 'rgba(255,80,80,0.3)';
+  ctx.arc(px, py, 16, 0, Math.PI*2);
+  ctx.fillStyle = inside ? 'rgba(0,230,118,0.18)' : 'rgba(255,82,82,0.18)';
   ctx.fill();
+
+  // Middle ring
   ctx.beginPath();
-  ctx.arc(px, py, 6, 0, Math.PI * 2);
-  ctx.fillStyle = inBounds ? '#00e676' : '#ff5252';
+  ctx.arc(px, py, 9, 0, Math.PI*2);
+  ctx.fillStyle = inside ? 'rgba(0,230,118,0.35)' : 'rgba(255,82,82,0.35)';
+  ctx.fill();
+
+  // Solid dot
+  ctx.beginPath();
+  ctx.arc(px, py, 6, 0, Math.PI*2);
+  ctx.fillStyle = col;
   ctx.fill();
   ctx.strokeStyle = 'white';
   ctx.lineWidth = 2;
   ctx.stroke();
 }
 
-// ── MAP NAV ──────────────────────────────────────────────────
-function showMapNav() {
-  document.getElementById('imageNavContainer').classList.remove('active');
-  document.getElementById('mapNavContainer').classList.add('active');
-
+// ── MAP MODE ──────────────────────────────────────────────────
+function initMapView() {
   if (!navMap) {
     const center = polygon.length ? polygon[0] : [11.0, 78.0];
-    navMap = L.map('navMap').setView(center, 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(navMap);
+    navMap = L.map('navMap', { zoomControl: true }).setView(center, 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { attribution: '© OpenStreetMap' }).addTo(navMap);
   }
 
-  // Draw polygon
-  if (polygon.length >= 3) {
-    L.polygon(polygon, { color: '#1a6b3a', weight: 2.5, fillColor: '#4caf50', fillOpacity: 0.15 }).addTo(navMap);
-    const lats = polygon.map(p => p[0]);
-    const lngs = polygon.map(p => p[1]);
-    navMap.fitBounds([[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]]);
+  if (!mapPolyDrawn && polygon.length >= 3) {
+    L.polygon(polygon, {
+      color: '#f5e020', weight: 2.5,
+      fillColor: '#4caf50', fillOpacity: 0.12
+    }).addTo(navMap);
+    const lats = polygon.map(p=>p[0]), lngs = polygon.map(p=>p[1]);
+    navMap.fitBounds([
+      [Math.min(...lats), Math.min(...lngs)],
+      [Math.max(...lats), Math.max(...lngs)]
+    ], { padding: [20,20] });
+    mapPolyDrawn = true;
   }
 
-  setTimeout(() => navMap.invalidateSize(), 100);
-
-  if (lastGPS) updateMapMarker(lastGPS.lat, lastGPS.lng);
+  setTimeout(() => navMap.invalidateSize(), 150);
+  if (lastGPS) updateMapDot(lastGPS.lat, lastGPS.lng);
 }
 
-function updateMapMarker(lat, lng) {
+function updateMapDot(lat, lng) {
   if (!navMap) return;
   if (gpsMarker) navMap.removeLayer(gpsMarker);
   gpsMarker = L.circleMarker([lat, lng], {
-    radius: 8, color: '#1a6b3a', fillColor: '#00e676', fillOpacity: 1, weight: 2
+    radius: 9, color: '#1a6b3a', weight: 2,
+    fillColor: '#00e676', fillOpacity: 1
   }).addTo(navMap);
 }
 
-// ── GPS ──────────────────────────────────────────────────────
+// ── GPS ───────────────────────────────────────────────────────
 function startGPS() {
-  const status = document.getElementById('gpsStatus');
+  const pill = document.getElementById('gpsPill');
   if (!navigator.geolocation) {
-    status.textContent = '❌ GPS not supported';
-    status.className = 'gps-status bad';
-    return;
+    pill.textContent = '❌ GPS not available'; pill.className = 'bd'; return;
   }
-  gpsWatcher = navigator.geolocation.watchPosition(
-    pos => {
-      lastGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      const acc = Math.round(pos.coords.accuracy);
-      status.textContent = `📍 GPS ±${acc}m`;
-      status.className = acc < 20 ? 'gps-status good' : 'gps-status';
-      if (currentView === 'image') drawGPSDot(lastGPS.lat, lastGPS.lng);
-      if (currentView === 'map') updateMapMarker(lastGPS.lat, lastGPS.lng);
-    },
-    err => {
-      status.textContent = '❌ Allow GPS access';
-      status.className = 'gps-status bad';
-    },
-    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
-  );
+  gpsWatcher = navigator.geolocation.watchPosition(pos => {
+    lastGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    const acc = Math.round(pos.coords.accuracy);
+    pill.textContent = `📍 GPS ±${acc}m`;
+    pill.className = acc <= 15 ? 'gd' : '';
+    if (curMode === 'image') drawFrame();
+    if (curMode === 'map') updateMapDot(lastGPS.lat, lastGPS.lng);
+  }, () => {
+    pill.textContent = '❌ Allow location access';
+    pill.className = 'bd';
+  }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
 }
 
 function stopGPS() {
-  if (gpsWatcher) navigator.geolocation.clearWatch(gpsWatcher);
-  gpsWatcher = null;
+  if (gpsWatcher != null) { navigator.geolocation.clearWatch(gpsWatcher); gpsWatcher = null; }
+  lastGPS = null;
 }
 
-function showError(msg) {
-  document.getElementById('imageCards').innerHTML = `
-    <div class="empty-state"><div class="icon">❌</div><p>${msg}</p></div>`;
-  document.getElementById('headerName').textContent = 'FarmView';
+// ── HELPERS ───────────────────────────────────────────────────
+function showErr(msg) {
+  document.getElementById('hName').textContent = 'FarmView';
+  document.getElementById('cards').innerHTML =
+    `<div class="empty"><div class="ico">❌</div><p>${msg}</p></div>`;
 }
 
 window.addEventListener('resize', () => {
-  if (currentView === 'image') { resizeCanvas(); drawNavImage(); if (lastGPS) drawGPSDot(lastGPS.lat, lastGPS.lng); }
+  if (curMode === 'image' && imgLoaded) { fitCanvas(); drawFrame(); }
 });
 
 init();
