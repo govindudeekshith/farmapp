@@ -353,15 +353,19 @@ function drawDot(ctx, lat, lng, imgBounds) {
 function initMapView() {
   if (!navMap) {
     const center = polygon.length ? polygon[0] : [11.0, 78.0];
-    navMap = L.map('navMap', { zoomControl: true }).setView(center, 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { attribution: '© OpenStreetMap' }).addTo(navMap);
+    navMap = L.map('navMap', { zoomControl: true }).setView(center, 18);
+
+    // Satellite imagery — Google hybrid (satellite + labels)
+    L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      attribution: '© Google Maps',
+      maxZoom: 21
+    }).addTo(navMap);
   }
 
   if (!mapPolyDrawn && polygon.length >= 3) {
     L.polygon(polygon, {
-      color: '#f5e020', weight: 2.5,
-      fillColor: '#4caf50', fillOpacity: 0.12
+      color: '#ffee00', weight: 2.5,
+      fillColor: '#ffee00', fillOpacity: 0.08
     }).addTo(navMap);
     const lats = polygon.map(p=>p[0]), lngs = polygon.map(p=>p[1]);
     navMap.fitBounds([
@@ -379,28 +383,58 @@ function updateMapDot(lat, lng) {
   if (!navMap) return;
   if (gpsMarker) navMap.removeLayer(gpsMarker);
   gpsMarker = L.circleMarker([lat, lng], {
-    radius: 9, color: '#1a6b3a', weight: 2,
+    radius: 9, color: '#ffffff', weight: 2.5,
     fillColor: '#00e676', fillOpacity: 1
   }).addTo(navMap);
+  navMap.panTo([lat, lng], { animate: true, duration: 0.5 });
 }
 
-// ── GPS ───────────────────────────────────────────────────────
+// ── GPS — with smoothing + accuracy filter ────────────────────
+// We keep a small buffer of recent readings and average them
+// to reduce the jumpiness caused by phone GPS noise.
+const GPS_BUFFER_SIZE = 4;   // average last 4 readings
+const GPS_MAX_ACCURACY = 30; // ignore readings worse than 30m
+let gpsBuffer = [];
+
+function smoothGPS(lat, lng) {
+  gpsBuffer.push({ lat, lng });
+  if (gpsBuffer.length > GPS_BUFFER_SIZE) gpsBuffer.shift();
+  const avgLat = gpsBuffer.reduce((s,p) => s + p.lat, 0) / gpsBuffer.length;
+  const avgLng = gpsBuffer.reduce((s,p) => s + p.lng, 0) / gpsBuffer.length;
+  return { lat: avgLat, lng: avgLng };
+}
+
 function startGPS() {
+  gpsBuffer = [];
   const pill = document.getElementById('gpsPill');
   if (!navigator.geolocation) {
     pill.textContent = '❌ GPS not available'; pill.className = 'bd'; return;
   }
   gpsWatcher = navigator.geolocation.watchPosition(pos => {
-    lastGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     const acc = Math.round(pos.coords.accuracy);
     pill.textContent = `📍 GPS ±${acc}m`;
-    pill.className = acc <= 15 ? 'gd' : '';
+    pill.className = acc <= 15 ? 'gd' : (acc <= 30 ? '' : 'bd');
+
+    // Skip very inaccurate readings — they make the dot jump wildly
+    if (acc > GPS_MAX_ACCURACY) {
+      pill.textContent = `⏳ Improving GPS… ±${acc}m`;
+      return;
+    }
+
+    // Smooth the position
+    const smooth = smoothGPS(pos.coords.latitude, pos.coords.longitude);
+    lastGPS = smooth;
+
     if (curMode === 'image') drawFrame();
-    if (curMode === 'map') updateMapDot(lastGPS.lat, lastGPS.lng);
-  }, () => {
+    if (curMode === 'map') updateMapDot(smooth.lat, smooth.lng);
+  }, err => {
     pill.textContent = '❌ Allow location access';
     pill.className = 'bd';
-  }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+  }, {
+    enableHighAccuracy: true,
+    maximumAge: 1000,   // use reading up to 1s old (was 3s)
+    timeout: 15000
+  });
 }
 
 function stopGPS() {
