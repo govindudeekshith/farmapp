@@ -4,187 +4,177 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FarmView Admin</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #f0f4f0; color: #1a2e1a; min-height: 100vh; }
-  
-  header { background: #1a6b3a; color: white; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
-  header .logo { font-size: 20px; }
-  header h1 { font-size: 16px; font-weight: 600; }
-  header span { font-size: 12px; opacity: 0.7; margin-left: auto; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #f0f4f0; color: #1a2e1a; min-height: 100vh; }
 
-  .tabs { display: flex; background: white; border-bottom: 2px solid #e0e8e0; }
-  .tab { padding: 12px 24px; font-size: 14px; cursor: pointer; color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
-  .tab.active { color: #1a6b3a; border-bottom-color: #1a6b3a; font-weight: 600; }
+header { background: #1a6b3a; color: white; padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+header h1 { font-size: 17px; font-weight: 700; }
+header span { font-size: 12px; opacity: 0.7; margin-left: auto; }
 
-  .content { padding: 20px; max-width: 900px; margin: 0 auto; }
-  .panel { display: none; }
-  .panel.active { display: block; }
+.tabs { display: flex; background: white; border-bottom: 2px solid #e0e8e0; overflow-x: auto; }
+.tab { padding: 13px 20px; font-size: 14px; cursor: pointer; color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; transition: all 0.2s; }
+.tab.active { color: #1a6b3a; border-bottom-color: #1a6b3a; font-weight: 600; }
 
-  .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .card h2 { font-size: 15px; font-weight: 600; color: #1a2e1a; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid #e8f0e8; }
+.content { padding: 16px; max-width: 700px; margin: 0 auto; }
+.panel { display: none; }
+.panel.active { display: block; }
 
-  label { display: block; font-size: 13px; color: #444; margin-bottom: 5px; margin-top: 12px; font-weight: 500; }
-  label:first-child { margin-top: 0; }
-  input, select, textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #d0ddd0; border-radius: 8px; font-size: 14px; color: #1a2e1a; outline: none; transition: border 0.2s; }
-  input:focus, select:focus, textarea:focus { border-color: #1a6b3a; }
-  textarea { resize: vertical; min-height: 70px; }
+.card { background: white; border-radius: 12px; padding: 18px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+.card h2 { font-size: 14px; font-weight: 700; color: #1a2e1a; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #e8f0e8; display: flex; align-items: center; gap: 8px; }
 
-  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-  .btn-primary { background: #1a6b3a; color: white; }
-  .btn-primary:hover { background: #155c30; }
-  .btn-secondary { background: #e8f4ec; color: #1a6b3a; }
-  .btn-secondary:hover { background: #d0ecd8; }
-  .btn-danger { background: #fde8e8; color: #c0392b; }
-  .btn-danger:hover { background: #fbd0d0; }
-  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .btn-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+label { display: block; font-size: 13px; color: #444; margin-bottom: 5px; margin-top: 12px; font-weight: 500; }
+label:first-of-type { margin-top: 0; }
+input, select, textarea { width: 100%; padding: 10px 12px; border: 1.5px solid #d0ddd0; border-radius: 8px; font-size: 14px; color: #1a2e1a; outline: none; transition: border 0.2s; background: white; }
+input:focus, select:focus, textarea:focus { border-color: #1a6b3a; }
+textarea { resize: vertical; min-height: 60px; }
 
-  #map { height: 340px; border-radius: 10px; border: 1.5px solid #d0ddd0; margin-top: 12px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 18px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-primary { background: #1a6b3a; color: white; width: 100%; margin-top: 14px; }
+.btn-primary:hover { background: #155c30; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-sm { padding: 7px 12px; font-size: 12px; }
+.btn-copy { background: #e8f4ec; color: #1a6b3a; }
+.btn-copy:hover { background: #d0ecd8; }
+.btn-danger { background: #fde8e8; color: #c0392b; }
 
-  .farmer-list { display: grid; gap: 10px; }
-  .farmer-card { background: white; border-radius: 10px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); display: flex; align-items: center; gap: 12px; }
-  .farmer-avatar { width: 40px; height: 40px; border-radius: 50%; background: #e8f4ec; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
-  .farmer-info { flex: 1; }
-  .farmer-info strong { font-size: 14px; display: block; }
-  .farmer-info span { font-size: 12px; color: #666; }
-  .farmer-url { font-size: 11px; color: #1a6b3a; background: #e8f4ec; padding: 3px 8px; border-radius: 20px; cursor: pointer; border: none; }
-  .farmer-actions { display: flex; gap: 6px; }
+.upload-box { border: 2px dashed #b0d4b8; border-radius: 10px; padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.2s; margin-top: 10px; background: #fafffe; }
+.upload-box:hover { border-color: #1a6b3a; background: #f0faf3; }
+.upload-box .icon { font-size: 36px; margin-bottom: 8px; }
+.upload-box p { font-size: 13px; color: #666; }
+.upload-box .hint { font-size: 12px; color: #999; margin-top: 4px; }
+input[type=file] { display: none; }
 
-  .upload-area { border: 2px dashed #c0d8c0; border-radius: 10px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.2s; margin-top: 12px; }
-  .upload-area:hover { border-color: #1a6b3a; background: #f5fbf5; }
-  .upload-area p { font-size: 14px; color: #666; margin-top: 8px; }
-  .upload-area .icon { font-size: 32px; }
-  #fileInput { display: none; }
+.success-box { background: #e8f4ec; border: 1px solid #a8d8b4; border-radius: 8px; padding: 12px 14px; margin-top: 10px; font-size: 13px; color: #1a6b3a; display: none; }
+.success-box.show { display: block; }
+.kml-coords { font-family: monospace; font-size: 11px; color: #555; background: #f5f9f5; border: 1px solid #d0ddd0; border-radius: 6px; padding: 8px; margin-top: 8px; max-height: 80px; overflow-y: auto; word-break: break-all; }
 
-  .img-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 12px; }
-  .img-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; }
-  .img-thumb img { width: 100%; height: 100%; object-fit: cover; }
-  .img-thumb .remove { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+.farmer-list { display: flex; flex-direction: column; gap: 10px; }
+.farmer-row { background: white; border-radius: 10px; padding: 13px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); display: flex; align-items: center; gap: 12px; }
+.f-avatar { width: 38px; height: 38px; border-radius: 50%; background: #e8f4ec; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.f-info { flex: 1; min-width: 0; }
+.f-name { font-size: 14px; font-weight: 600; }
+.f-sub { font-size: 12px; color: #666; margin-top: 1px; }
+.f-badge { font-size: 11px; padding: 2px 7px; border-radius: 20px; font-weight: 500; }
+.badge-ok { background: #e8f4ec; color: #1a6b3a; }
+.badge-warn { background: #fff3e0; color: #e67e22; }
+.f-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
-  .toast { position: fixed; bottom: 20px; right: 20px; background: #1a6b3a; color: white; padding: 12px 20px; border-radius: 10px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transform: translateY(100px); opacity: 0; transition: all 0.3s; z-index: 9999; }
-  .toast.show { transform: translateY(0); opacity: 1; }
-  .toast.error { background: #c0392b; }
+.img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+.img-item { border-radius: 10px; overflow: hidden; border: 1px solid #e0e8e0; background: white; }
+.img-item img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+.img-item .img-meta { padding: 7px 9px; font-size: 11px; color: #666; }
+.img-item .img-meta strong { display: block; font-size: 12px; color: #1a2e1a; }
 
-  .images-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-top: 12px; }
-  .image-item { border-radius: 10px; overflow: hidden; border: 1px solid #e0e8e0; background: white; }
-  .image-item img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
-  .image-item .image-meta { padding: 8px 10px; font-size: 11px; color: #666; }
-  .image-item .image-meta strong { display: block; color: #1a2e1a; font-size: 12px; }
+.preview-thumb { width: 100%; border-radius: 8px; margin-top: 10px; display: none; max-height: 180px; object-fit: contain; background: #000; }
+.preview-thumb.show { display: block; }
 
-  .coords-display { font-family: monospace; font-size: 11px; background: #f5f9f5; border: 1px solid #d0ddd0; border-radius: 6px; padding: 8px 10px; margin-top: 8px; word-break: break-all; color: #444; max-height: 60px; overflow-y: auto; }
-  .map-instructions { font-size: 12px; color: #666; background: #fffbe6; border: 1px solid #f0d060; border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1a6b3a; color: white; padding: 11px 20px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,0.2); opacity: 0; transition: all 0.3s; z-index: 9999; white-space: nowrap; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.err { background: #c0392b; }
 
-  .loading { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+.loading { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-  select option { padding: 8px; }
+.info-box { background: #fffbe6; border: 1px solid #f0d060; border-radius: 8px; padding: 10px 13px; font-size: 13px; color: #7a6000; margin-bottom: 14px; line-height: 1.6; }
 </style>
 </head>
 <body>
 
 <header>
-  <span class="logo">🌾</span>
+  <span style="font-size:22px">🌾</span>
   <h1>FarmView Admin</h1>
-  <span>Admin Panel</span>
+  <span>Admin Only</span>
 </header>
 
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('farmers')">👨‍🌾 Farmers</div>
-  <div class="tab" onclick="switchTab('add')">➕ Add Farmer</div>
-  <div class="tab" onclick="switchTab('upload')">📸 Upload Image</div>
-  <div class="tab" onclick="switchTab('images')">🗂️ All Images</div>
+  <div class="tab active" onclick="switchTab('farmers',this)">👨‍🌾 Farmers</div>
+  <div class="tab" onclick="switchTab('add',this)">➕ Add Farmer</div>
+  <div class="tab" onclick="switchTab('kml',this)">📂 Upload KML</div>
+  <div class="tab" onclick="switchTab('upload',this)">📸 Upload Image</div>
+  <div class="tab" onclick="switchTab('images',this)">🗂 All Images</div>
 </div>
 
 <div class="content">
 
-  <!-- FARMERS LIST -->
+  <!-- FARMERS -->
   <div id="panel-farmers" class="panel active">
     <div class="card">
-      <h2>All Farmers</h2>
-      <div id="farmerList" class="farmer-list">
-        <p style="color:#888;font-size:14px">Loading farmers...</p>
-      </div>
+      <h2>👨‍🌾 All Farmers</h2>
+      <div class="farmer-list" id="farmerList"><p style="color:#888;font-size:14px">Loading...</p></div>
     </div>
   </div>
 
   <!-- ADD FARMER -->
   <div id="panel-add" class="panel">
     <div class="card">
-      <h2>Add New Farmer</h2>
-      <label>Farmer Name</label>
-      <input type="text" id="farmerName" placeholder="e.g. Ravi Kumar">
+      <h2>➕ Add New Farmer</h2>
+      <label>Full Name</label>
+      <input type="text" id="fName" placeholder="e.g. Ravi Kumar">
       <label>Phone Number</label>
-      <input type="tel" id="farmerPhone" placeholder="e.g. 9876543210">
+      <input type="tel" id="fPhone" placeholder="e.g. 9876543210">
       <label>Village</label>
-      <input type="text" id="farmerVillage" placeholder="e.g. Thanjavur">
+      <input type="text" id="fVillage" placeholder="e.g. Thanjavur">
       <label>Survey / Plot Number (optional)</label>
-      <input type="text" id="farmerPlot" placeholder="e.g. Survey No. 142/3">
-      <div class="btn-row">
-        <button class="btn btn-primary" onclick="addFarmer()">➕ Add Farmer</button>
-      </div>
+      <input type="text" id="fPlot" placeholder="e.g. Survey No. 142/3">
+      <button class="btn btn-primary" onclick="addFarmer()">➕ Add Farmer</button>
     </div>
+  </div>
 
+  <!-- KML UPLOAD -->
+  <div id="panel-kml" class="panel">
     <div class="card">
-      <h2>Draw Plot Polygon</h2>
+      <h2>📂 Upload KML File</h2>
+      <div class="info-box">
+        📌 Export the KML from Pix4DFields or Google My Maps after mapping the plot.<br>
+        The polygon coordinates inside the KML are extracted automatically and saved to the farmer's profile.
+      </div>
       <label>Select Farmer</label>
-      <select id="polygonFarmer">
-        <option value="">-- select farmer --</option>
-      </select>
-      <div class="map-instructions">
-        📍 <strong>Tap on the map</strong> to place polygon corners around the field.<br>
-        🔴 Click <strong>Undo</strong> to remove last point. Click <strong>Clear</strong> to start over.<br>
-        ✅ When done, click <strong>Save Polygon</strong> — KML file will also download.
+      <select id="kmlFarmer"><option value="">-- select farmer --</option></select>
+      <div class="upload-box" onclick="document.getElementById('kmlFile').click()">
+        <div class="icon">📂</div>
+        <p>Tap to select KML file</p>
+        <div class="hint">.kml file from Pix4DFields or Google My Maps</div>
       </div>
-      <div id="map"></div>
-      <div class="coords-display" id="coordsDisplay">No points yet — tap the map to start</div>
-      <div class="btn-row">
-        <button class="btn btn-secondary" onclick="undoPoint()">↩ Undo</button>
-        <button class="btn btn-danger" onclick="clearPolygon()">🗑 Clear</button>
-        <button class="btn btn-primary" onclick="savePolygon()">✅ Save & Download KML</button>
+      <input type="file" id="kmlFile" accept=".kml,.xml" onchange="readKML(this)">
+      <div class="success-box" id="kmlSuccess">
+        <strong>✅ KML parsed successfully!</strong>
+        <div id="kmlPointCount"></div>
+        <div class="kml-coords" id="kmlCoordsPreview"></div>
       </div>
+      <button class="btn btn-primary" id="saveKmlBtn" onclick="saveKML()" style="display:none">💾 Save to Farmer Profile</button>
     </div>
   </div>
 
   <!-- UPLOAD IMAGE -->
   <div id="panel-upload" class="panel">
     <div class="card">
-      <h2>Upload Index Image</h2>
+      <h2>📸 Upload Index Image</h2>
       <label>Select Farmer</label>
-      <select id="uploadFarmer">
-        <option value="">-- select farmer --</option>
-      </select>
+      <select id="uploadFarmer"><option value="">-- select farmer --</option></select>
       <label>Date of Survey</label>
-      <input type="date" id="uploadDate" value="">
+      <input type="date" id="uploadDate">
       <label>Notes (optional)</label>
-      <textarea id="uploadNotes" placeholder="e.g. Kharif season, NDVI index, good coverage in north zone"></textarea>
-      <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+      <textarea id="uploadNotes" placeholder="e.g. Kharif season NDVI — good coverage in north zone"></textarea>
+      <div class="upload-box" onclick="document.getElementById('imgFile').click()">
         <div class="icon">📷</div>
-        <p>Tap to select screenshot from gallery</p>
-        <p style="font-size:12px;margin-top:4px">JPG or PNG — max 10 MB</p>
+        <p>Tap to select screenshot</p>
+        <div class="hint">JPG or PNG — your Pix4DFields screenshot</div>
       </div>
-      <input type="file" id="fileInput" accept="image/*" onchange="previewFile(this)">
-      <div class="img-preview" id="imgPreview"></div>
-      <div class="btn-row">
-        <button class="btn btn-primary" id="uploadBtn" onclick="uploadImage()">📤 Upload Image</button>
-      </div>
+      <input type="file" id="imgFile" accept="image/*" onchange="previewImg(this)">
+      <img class="preview-thumb" id="previewThumb">
+      <button class="btn btn-primary" id="uploadBtn" onclick="uploadImage()">📤 Upload Image</button>
     </div>
   </div>
 
   <!-- ALL IMAGES -->
   <div id="panel-images" class="panel">
     <div class="card">
-      <h2>All Uploaded Images</h2>
+      <h2>🗂 Uploaded Images</h2>
       <label>Filter by Farmer</label>
-      <select id="filterFarmer" onchange="loadImages()">
-        <option value="">All Farmers</option>
-      </select>
-      <div class="images-grid" id="imagesGrid">
-        <p style="color:#888;font-size:14px">Loading...</p>
-      </div>
+      <select id="filterFarmer" onchange="loadImages()"><option value="">All Farmers</option></select>
+      <div class="img-grid" id="imgGrid"><p style="color:#888;font-size:14px;margin-top:12px">Loading...</p></div>
     </div>
   </div>
 
@@ -193,199 +183,169 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────
 const SUPABASE_URL = 'https://xkvjimbtjfkvbxrrurit.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrdmppbWJ0amZrdmJ4cnJ1cml0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDYwMDQsImV4cCI6MjA5NjkyMjAwNH0.0ppKgbzs4QtdjHKHQGiZHRSXhYH3Wb_lTnpTOYh0ypY';
 const CLOUDINARY_CLOUD = 'djw8lvoxs';
 const CLOUDINARY_PRESET = 'farmapp';
 const GITHUB_USER = 'govindudeekshith';
-const FARMER_BASE_URL = `https://${GITHUB_USER}.github.io/farmapp/farmer/`;
 
-// ── INIT ────────────────────────────────────────────────────
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-let map, polygon = [], polyline, markers = [];
-let selectedFile = null;
+let parsedKMLCoords = null;
+let selectedImgFile = null;
 
 document.getElementById('uploadDate').value = new Date().toISOString().split('T')[0];
+window.onload = () => { loadFarmers(); };
 
-window.onload = () => {
-  initMap();
-  loadFarmers();
-};
-
-// ── TABS ────────────────────────────────────────────────────
-function switchTab(name) {
+// ── TABS ─────────────────────────────────────────────────────
+function switchTab(name, el) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + name).classList.add('active');
-  event.target.classList.add('active');
+  el.classList.add('active');
   if (name === 'images') loadImages();
   if (name === 'farmers') loadFarmers();
 }
 
-// ── TOAST ───────────────────────────────────────────────────
-function toast(msg, isError = false) {
+// ── TOAST ────────────────────────────────────────────────────
+function toast(msg, isErr = false) {
   const t = document.getElementById('toast');
   t.textContent = msg;
-  t.className = 'toast show' + (isError ? ' error' : '');
-  setTimeout(() => t.className = 'toast', 3000);
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => t.className = 'toast', 3200);
 }
 
-// ── MAP ─────────────────────────────────────────────────────
-function initMap() {
-  map = L.map('map').setView([11.0, 78.0], 13);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap'
-  }).addTo(map);
-  map.on('click', onMapClick);
-}
-
-function onMapClick(e) {
-  const pt = [e.latlng.lat, e.latlng.lng];
-  polygon.push(pt);
-  const marker = L.circleMarker(pt, { radius: 6, color: '#1a6b3a', fillColor: '#4caf50', fillOpacity: 1 }).addTo(map);
-  markers.push(marker);
-  redrawPolygon();
-  updateCoordsDisplay();
-}
-
-function redrawPolygon() {
-  if (polyline) map.removeLayer(polyline);
-  if (polygon.length > 1) {
-    const pts = [...polygon, polygon[0]];
-    polyline = L.polyline(pts, { color: '#1a6b3a', weight: 2.5, dashArray: '5,5' }).addTo(map);
-  }
-}
-
-function undoPoint() {
-  if (!polygon.length) return;
-  polygon.pop();
-  map.removeLayer(markers.pop());
-  redrawPolygon();
-  updateCoordsDisplay();
-}
-
-function clearPolygon() {
-  polygon = [];
-  markers.forEach(m => map.removeLayer(m));
-  markers = [];
-  if (polyline) map.removeLayer(polyline);
-  polyline = null;
-  updateCoordsDisplay();
-}
-
-function updateCoordsDisplay() {
-  const el = document.getElementById('coordsDisplay');
-  if (!polygon.length) { el.textContent = 'No points yet — tap the map to start'; return; }
-  el.textContent = polygon.map((p,i) => `P${i+1}: ${p[0].toFixed(6)}, ${p[1].toFixed(6)}`).join('  |  ');
-}
-
-async function savePolygon() {
-  const farmerId = document.getElementById('polygonFarmer').value;
-  if (!farmerId) { toast('Please select a farmer first', true); return; }
-  if (polygon.length < 3) { toast('Draw at least 3 points', true); return; }
-  const coords = JSON.stringify(polygon);
-  const { error } = await sb.from('farmers').update({ polygon_coords: coords }).eq('id', farmerId);
-  if (error) { toast('Save failed: ' + error.message, true); return; }
-  downloadKML(polygon, farmerId);
-  toast('✅ Polygon saved! KML downloaded.');
-}
-
-function downloadKML(pts, farmerId) {
-  const coords = [...pts, pts[0]].map(p => `${p[1]},${p[0]},0`).join('\n              ');
-  const kml = `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>Farm Plot</name>
-    <Placemark>
-      <name>Plot Boundary</name>
-      <Polygon>
-        <outerBoundaryIs>
-          <LinearRing>
-            <coordinates>
-              ${coords}
-            </coordinates>
-          </LinearRing>
-        </outerBoundaryIs>
-      </Polygon>
-    </Placemark>
-  </Document>
-</kml>`;
-  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `plot_${farmerId}.kml`;
-  a.click();
-}
-
-// ── FARMERS ─────────────────────────────────────────────────
+// ── FARMERS ──────────────────────────────────────────────────
 async function loadFarmers() {
   const { data, error } = await sb.from('farmers').select('*').order('created_at', { ascending: false });
-  if (error) { toast('Load failed', true); return; }
+  if (error) { toast('Failed to load farmers', true); return; }
 
-  // Populate farmer list
   const list = document.getElementById('farmerList');
   if (!data.length) { list.innerHTML = '<p style="color:#888;font-size:14px">No farmers yet. Add one!</p>'; }
   else {
     list.innerHTML = data.map(f => `
-      <div class="farmer-card">
-        <div class="farmer-avatar">👨‍🌾</div>
-        <div class="farmer-info">
-          <strong>${f.name}</strong>
-          <span>${f.village} · ${f.phone}</span>
-          ${f.polygon_coords ? '<span style="color:#1a6b3a;font-size:11px">✅ Polygon saved</span>' : '<span style="color:#e67e22;font-size:11px">⚠️ No polygon yet</span>'}
+      <div class="farmer-row">
+        <div class="f-avatar">👨‍🌾</div>
+        <div class="f-info">
+          <div class="f-name">${f.name}</div>
+          <div class="f-sub">${f.village} · ${f.phone || '—'}</div>
+          <div style="margin-top:4px">
+            ${f.polygon_coords ? '<span class="f-badge badge-ok">✅ KML saved</span>' : '<span class="f-badge badge-warn">⚠️ No KML yet</span>'}
+          </div>
         </div>
-        <button class="farmer-url" onclick="copyURL('${f.id}')">📋 Copy URL</button>
+        <div class="f-actions">
+          <button class="btn btn-sm btn-copy" onclick="copyURL('${f.id}')">📋 Copy URL</button>
+        </div>
       </div>
     `).join('');
   }
 
-  // Populate all dropdowns
+  // Fill all selects
   const opts = data.map(f => `<option value="${f.id}">${f.name} — ${f.village}</option>`).join('');
-  ['polygonFarmer', 'uploadFarmer', 'filterFarmer'].forEach(id => {
+  ['kmlFarmer','uploadFarmer','filterFarmer'].forEach(id => {
     const el = document.getElementById(id);
     const first = el.options[0].outerHTML;
     el.innerHTML = first + opts;
   });
 }
 
-function copyURL(farmerId) {
-  const url = `${FARMER_BASE_URL}?id=${farmerId}`;
-  navigator.clipboard.writeText(url).then(() => toast('✅ URL copied! Send to farmer via WhatsApp'));
+function copyURL(id) {
+  const url = `https://${GITHUB_USER}.github.io/farmapp/farmer/?id=${id}`;
+  navigator.clipboard.writeText(url).then(() => toast('✅ URL copied! Send to farmer on WhatsApp'));
 }
 
 async function addFarmer() {
-  const name = document.getElementById('farmerName').value.trim();
-  const phone = document.getElementById('farmerPhone').value.trim();
-  const village = document.getElementById('farmerVillage').value.trim();
-  const plot = document.getElementById('farmerPlot').value.trim();
-  if (!name || !phone || !village) { toast('Fill name, phone, and village', true); return; }
+  const name = document.getElementById('fName').value.trim();
+  const phone = document.getElementById('fPhone').value.trim();
+  const village = document.getElementById('fVillage').value.trim();
+  const plot = document.getElementById('fPlot').value.trim();
+  if (!name || !village) { toast('Name and village are required', true); return; }
   const { error } = await sb.from('farmers').insert({ name, phone, village, plot_number: plot });
   if (error) { toast('Error: ' + error.message, true); return; }
   toast('✅ Farmer added!');
-  document.getElementById('farmerName').value = '';
-  document.getElementById('farmerPhone').value = '';
-  document.getElementById('farmerVillage').value = '';
-  document.getElementById('farmerPlot').value = '';
+  ['fName','fPhone','fVillage','fPlot'].forEach(id => document.getElementById(id).value = '');
   loadFarmers();
 }
 
-// ── UPLOAD IMAGE ─────────────────────────────────────────────
-let filesToUpload = [];
-
-function previewFile(input) {
+// ── KML ──────────────────────────────────────────────────────
+function readKML(input) {
   const file = input.files[0];
   if (!file) return;
-  selectedFile = file;
-  const preview = document.getElementById('imgPreview');
   const reader = new FileReader();
   reader.onload = e => {
-    preview.innerHTML = `
-      <div class="img-thumb">
-        <img src="${e.target.result}">
-        <button class="remove" onclick="selectedFile=null;document.getElementById('imgPreview').innerHTML=''">✕</button>
-      </div>`;
+    try {
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(e.target.result, 'text/xml');
+
+      // Try Polygon → coordinates first, then LineString
+      let coordEl = xml.querySelector('Polygon coordinates') ||
+                    xml.querySelector('coordinates');
+
+      if (!coordEl) throw new Error('No coordinates found in KML');
+
+      const raw = coordEl.textContent.trim();
+      // KML format: lng,lat,alt per point
+      const points = raw.split(/\s+/)
+        .map(s => s.trim()).filter(Boolean)
+        .map(s => {
+          const parts = s.split(',');
+          if (parts.length < 2) return null;
+          const lng = parseFloat(parts[0]);
+          const lat = parseFloat(parts[1]);
+          if (isNaN(lat) || isNaN(lng)) return null;
+          return [lat, lng];
+        })
+        .filter(Boolean);
+
+      // Remove duplicate last point (KML closes polygon by repeating first)
+      if (points.length > 1) {
+        const first = points[0], last = points[points.length - 1];
+        if (Math.abs(first[0] - last[0]) < 0.000001 && Math.abs(first[1] - last[1]) < 0.000001) {
+          points.pop();
+        }
+      }
+
+      if (points.length < 3) throw new Error('Need at least 3 points to form a polygon');
+
+      parsedKMLCoords = points;
+      document.getElementById('kmlSuccess').classList.add('show');
+      document.getElementById('kmlPointCount').textContent = `${points.length} boundary points found`;
+      document.getElementById('kmlCoordsPreview').textContent =
+        points.map((p,i) => `P${i+1}: ${p[0].toFixed(6)}, ${p[1].toFixed(6)}`).join('  |  ');
+      document.getElementById('saveKmlBtn').style.display = 'block';
+      toast('✅ KML parsed — ' + points.length + ' points');
+    } catch(err) {
+      toast('KML error: ' + err.message, true);
+    }
   };
+  reader.readAsText(file);
+}
+
+async function saveKML() {
+  const farmerId = document.getElementById('kmlFarmer').value;
+  if (!farmerId) { toast('Select a farmer first', true); return; }
+  if (!parsedKMLCoords) { toast('Upload a KML file first', true); return; }
+
+  const { error } = await sb.from('farmers')
+    .update({ polygon_coords: JSON.stringify(parsedKMLCoords) })
+    .eq('id', farmerId);
+
+  if (error) { toast('Save failed: ' + error.message, true); return; }
+  toast('✅ Plot boundary saved to farmer!');
+  parsedKMLCoords = null;
+  document.getElementById('kmlSuccess').classList.remove('show');
+  document.getElementById('saveKmlBtn').style.display = 'none';
+  document.getElementById('kmlFile').value = '';
+  loadFarmers();
+}
+
+// ── IMAGE UPLOAD ─────────────────────────────────────────────
+function previewImg(input) {
+  const file = input.files[0];
+  if (!file) return;
+  selectedImgFile = file;
+  const thumb = document.getElementById('previewThumb');
+  const reader = new FileReader();
+  reader.onload = e => { thumb.src = e.target.result; thumb.classList.add('show'); };
   reader.readAsDataURL(file);
 }
 
@@ -394,23 +354,24 @@ async function uploadImage() {
   const date = document.getElementById('uploadDate').value;
   const notes = document.getElementById('uploadNotes').value.trim();
   if (!farmerId) { toast('Select a farmer', true); return; }
-  if (!selectedFile) { toast('Select an image first', true); return; }
+  if (!selectedImgFile) { toast('Select an image first', true); return; }
 
   const btn = document.getElementById('uploadBtn');
   btn.innerHTML = '<span class="loading"></span> Uploading...';
   btn.disabled = true;
 
   try {
-    // Upload to Cloudinary
-    const formData = new FormData();
-    formData.append('file', selectedFile);
-    formData.append('upload_preset', CLOUDINARY_PRESET);
-    formData.append('folder', 'farmapp');
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!data.secure_url) throw new Error('Upload failed');
+    const fd = new FormData();
+    fd.append('file', selectedImgFile);
+    fd.append('upload_preset', CLOUDINARY_PRESET);
+    fd.append('folder', 'farmapp');
 
-    // Save to Supabase
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD}/image/upload`, {
+      method: 'POST', body: fd
+    });
+    const data = await res.json();
+    if (!data.secure_url) throw new Error('Cloudinary upload failed');
+
     const { error } = await sb.from('farm_images').insert({
       farmer_id: farmerId,
       image_url: data.secure_url,
@@ -419,35 +380,35 @@ async function uploadImage() {
     });
     if (error) throw error;
 
-    toast('✅ Image uploaded successfully!');
-    selectedFile = null;
-    document.getElementById('imgPreview').innerHTML = '';
-    document.getElementById('fileInput').value = '';
+    toast('✅ Image uploaded!');
+    selectedImgFile = null;
+    document.getElementById('previewThumb').classList.remove('show');
+    document.getElementById('imgFile').value = '';
     document.getElementById('uploadNotes').value = '';
-  } catch (err) {
-    toast('Upload failed: ' + err.message, true);
+  } catch(err) {
+    toast('Failed: ' + err.message, true);
   } finally {
     btn.innerHTML = '📤 Upload Image';
     btn.disabled = false;
   }
 }
 
-// ── ALL IMAGES ───────────────────────────────────────────────
+// ── ALL IMAGES ────────────────────────────────────────────────
 async function loadImages() {
   const farmerId = document.getElementById('filterFarmer').value;
-  let query = sb.from('farm_images').select('*, farmers(name, village)').order('uploaded_at', { ascending: false });
-  if (farmerId) query = query.eq('farmer_id', farmerId);
-  const { data, error } = await query;
+  let q = sb.from('farm_images').select('*, farmers(name,village)').order('uploaded_at', { ascending: false });
+  if (farmerId) q = q.eq('farmer_id', farmerId);
+  const { data, error } = await q;
   if (error) { toast('Load failed', true); return; }
-  const grid = document.getElementById('imagesGrid');
-  if (!data.length) { grid.innerHTML = '<p style="color:#888;font-size:14px">No images yet.</p>'; return; }
+  const grid = document.getElementById('imgGrid');
+  if (!data || !data.length) { grid.innerHTML = '<p style="color:#888;font-size:14px;margin-top:12px">No images yet.</p>'; return; }
   grid.innerHTML = data.map(img => `
-    <div class="image-item">
+    <div class="img-item">
       <img src="${img.image_url}" loading="lazy">
-      <div class="image-meta">
-        <strong>${img.farmers?.name || 'Unknown'}</strong>
-        ${img.farmers?.village || ''} · ${new Date(img.uploaded_at).toLocaleDateString('en-IN')}
-        ${img.notes ? `<br><span style="color:#888">${img.notes}</span>` : ''}
+      <div class="img-meta">
+        <strong>${img.farmers?.name || '—'}</strong>
+        ${new Date(img.uploaded_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
+        ${img.notes ? `<br>${img.notes}` : ''}
       </div>
     </div>
   `).join('');
