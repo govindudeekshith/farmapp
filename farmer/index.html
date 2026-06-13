@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>FarmView</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #f0f4f0; color: #1a2e1a; }
+
+header { background: #1a6b3a; color: white; padding: 12px 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
+.h-name { font-size: 15px; font-weight: 700; }
+.h-village { font-size: 12px; opacity: 0.75; }
+
+.section { padding: 14px 14px 0; }
+.section-title { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+
+.img-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,0.09); margin-bottom: 12px; }
+.img-card img { width: 100%; display: block; cursor: pointer; }
+.img-card-foot { padding: 10px 14px 12px; display: flex; align-items: center; gap: 10px; }
+.img-date { font-size: 13px; font-weight: 600; flex: 1; }
+.img-notes { font-size: 12px; color: #666; }
+.tag-latest { font-size: 10px; background: #e8f4ec; color: #1a6b3a; padding: 2px 7px; border-radius: 20px; font-weight: 600; margin-left: 6px; }
+.btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 13px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; text-decoration: none; }
+.btn-nav { background: #1a6b3a; color: white; }
+.btn-dl { background: #e8f4ec; color: #1a6b3a; }
+.btns { display: flex; gap: 7px; }
+
+/* FULLSCREEN VIEWER */
+#viewer { display: none; position: fixed; inset: 0; background: #111; z-index: 500; flex-direction: column; }
+#viewer.open { display: flex; }
+
+.vbar { background: rgba(0,0,0,0.88); padding: 10px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.vtitle { color: white; font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vtoggle { background: #1a6b3a; color: white; border: none; border-radius: 7px; padding: 6px 11px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.vclose { background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 7px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+
+/* IMAGE MODE — canvas fills the rest */
+#imgMode { flex: 1; position: relative; display: flex; flex-direction: column; }
+#imgMode.hidden { display: none; }
+#navCanvas { display: block; width: 100%; flex: 1; }
+
+/* GPS pill floating top-left */
+#gpsPill { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.72); color: white; font-size: 12px; padding: 5px 11px; border-radius: 20px; pointer-events: none; }
+#gpsPill.gd { background: rgba(22,100,50,0.92); }
+#gpsPill.bd { background: rgba(170,30,30,0.88); }
+
+/* compass help text at bottom of image mode */
+#imgHelp { background: rgba(0,0,0,0.7); color: rgba(255,255,255,0.75); font-size: 11px; text-align: center; padding: 6px; flex-shrink: 0; }
+
+/* MAP MODE */
+#mapMode { flex: 1; display: none; }
+#mapMode.active { display: block; }
+#navMap { width: 100%; height: 100%; }
+
+/* empty / error */
+.empty { text-align: center; padding: 60px 24px; color: #888; }
+.empty .ico { font-size: 52px; margin-bottom: 12px; }
+.empty p { font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:22px">🌾</span>
+  <div>
+    <div class="h-name" id="hName">Loading…</div>
+    <div class="h-village" id="hVillage"></div>
+  </div>
+</header>
+
+<div class="section">
+  <div class="section-title">Field Reports</div>
+  <div id="cards"><div class="empty"><div class="ico">⏳</div><p>Loading your field data…</p></div></div>
+</div>
+
+<!-- FULLSCREEN VIEWER -->
+<div id="viewer">
+  <div class="vbar">
+    <div class="vtitle" id="vtitle">Field Index</div>
+    <button class="vtoggle" id="vtoggleBtn" onclick="toggleView()">🗺 Map View</button>
+    <button class="vclose" onclick="closeViewer()">✕</button>
+  </div>
+
+  <!-- IMAGE MODE -->
+  <div id="imgMode">
+    <canvas id="navCanvas"></canvas>
+    <div id="gpsPill">📡 Getting GPS…</div>
+    <div id="imgHelp">🟢 Green dot = your position on the field index map</div>
+  </div>
+
+  <!-- MAP MODE (satellite/OSM with polygon outline) -->
+  <div id="mapMode">
+    <div id="navMap"></div>
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://xkvjimbtjfkvbxrrurit.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrdmppbWJ0amZrdmJ4cnJ1cml0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDYwMDQsImV4cCI6MjA5NjkyMjAwNH0.0ppKgbzs4QtdjHKHQGiZHRSXhYH3Wb_lTnpTOYh0ypY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── STATE ─────────────────────────────────────────────────────
+let polygon = [];       // [[lat,lng], ...] from farmer's KML
+let curMode = 'image';  // 'image' | 'map'
+let lastGPS = null;
+let gpsWatcher = null;
+let navMap = null;
+let gpsMarker = null;
+let mapPolyDrawn = false;
+let navImg = new Image();
+let imgLoaded = false;
+
+// ── BOOT ──────────────────────────────────────────────────────
+async function init() {
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('id');
+  if (!id) { showErr('Invalid link — contact your coordinator.'); return; }
+
+  // Load farmer
+  const { data: farmer, error: fe } = await sb
+    .from('farmers').select('*').eq('id', id).single();
+
+  if (fe || !farmer) {
+    showErr('Farmer profile not found.<br>Please contact your coordinator.');
+    return;
+  }
+
+  document.getElementById('hName').textContent = farmer.name;
+  document.getElementById('hVillage').textContent = farmer.village;
+  document.title = farmer.name + ' — FarmView';
+
+  if (farmer.polygon_coords) {
+    try { polygon = JSON.parse(farmer.polygon_coords); } catch(e) { polygon = []; }
+  }
+
+  // Load images
+  const { data: images, error: ie } = await sb
+    .from('farm_images').select('*')
+    .eq('farmer_id', id)
+    .order('uploaded_at', { ascending: false });
+
+  if (ie || !images || images.length === 0) {
+    document.getElementById('cards').innerHTML =
+      `<div class="empty"><div class="ico">🌱</div><p>No field reports yet.<br>Check back after the next survey!</p></div>`;
+    return;
+  }
+
+  renderCards(images);
+}
+
+function renderCards(images) {
+  document.getElementById('cards').innerHTML = images.map((img, i) => {
+    const dateStr = fmtDate(img.uploaded_at);
+    return `
+    <div class="img-card">
+      <img src="${img.image_url}" loading="${i===0?'eager':'lazy'}"
+           onclick="openViewer('${img.image_url}','${dateStr}')">
+      <div class="img-card-foot">
+        <div style="flex:1">
+          <div class="img-date">
+            📅 ${dateStr}
+            ${i===0 ? '<span class="tag-latest">Latest</span>' : ''}
+          </div>
+          ${img.notes ? `<div class="img-notes">${img.notes}</div>` : ''}
+        </div>
+        <div class="btns">
+          <button class="btn btn-nav" onclick="openViewer('${img.image_url}','${dateStr}')">📍 Navigate</button>
+          <a class="btn btn-dl" href="${img.image_url}" target="_blank" download>⬇</a>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+}
+
+// ── VIEWER OPEN / CLOSE ───────────────────────────────────────
+function openViewer(url, dateStr) {
+  document.getElementById('vtitle').textContent = 'Index Map — ' + dateStr;
+  document.getElementById('viewer').classList.add('open');
+  curMode = 'image';
+  document.getElementById('vtoggleBtn').textContent = '🗺 Map View';
+  document.getElementById('imgMode').classList.remove('hidden');
+  document.getElementById('mapMode').classList.remove('active');
+
+  // Load the index image onto canvas
+  imgLoaded = false;
+  navImg = new Image();
+  navImg.crossOrigin = 'anonymous';
+  navImg.onload = () => {
+    imgLoaded = true;
+    fitCanvas();
+    drawFrame();
+  };
+  navImg.onerror = () => {
+    // If CORS blocks canvas, fall back to <img> display
+    imgLoaded = false;
+    const canvas = document.getElementById('navCanvas');
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Image loading…', canvas.width/2, canvas.height/2);
+  };
+  navImg.src = url;
+
+  startGPS();
+}
+
+function closeViewer() {
+  document.getElementById('viewer').classList.remove('open');
+  stopGPS();
+}
+
+// ── TOGGLE IMAGE ↔ MAP ────────────────────────────────────────
+function toggleView() {
+  if (curMode === 'image') {
+    curMode = 'map';
+    document.getElementById('vtoggleBtn').textContent = '🖼 Index View';
+    document.getElementById('imgMode').classList.add('hidden');
+    document.getElementById('mapMode').classList.add('active');
+    initMapView();
+  } else {
+    curMode = 'image';
+    document.getElementById('vtoggleBtn').textContent = '🗺 Map View';
+    document.getElementById('imgMode').classList.remove('hidden');
+    document.getElementById('mapMode').classList.remove('active');
+    drawFrame();
+  }
+}
+
+// ── IMAGE MODE — the key feature ─────────────────────────────
+/*
+  HOW GPS-ON-INDEX-IMAGE WORKS:
+  ─────────────────────────────
+  1. We have the farmer's plot polygon as GPS coordinates (lat/lng).
+  2. We compute the bounding box of that polygon (min/max lat and lng).
+  3. The index screenshot is assumed to cover exactly that bounding box
+     (because you took the screenshot of just that field in Pix4DFields).
+  4. We map any GPS point into image pixel coordinates using simple
+     linear interpolation:
+       pixel_x = (lng - minLng) / (maxLng - minLng) * imageWidth
+       pixel_y = (maxLat - lat) / (maxLat - minLat) * imageHeight
+     (Y is flipped because latitude increases upward but pixels go down)
+  5. We draw a glowing dot at that pixel position on the canvas.
+  6. This updates every time the GPS changes (~every 3 seconds while walking).
+  Result: farmer sees their exact position on the colour index map.
+*/
+
+function fitCanvas() {
+  const canvas = document.getElementById('navCanvas');
+  const cont = document.getElementById('imgMode');
+  // canvas fills available space
+  canvas.width = cont.clientWidth;
+  canvas.height = cont.clientHeight - document.getElementById('imgHelp').offsetHeight;
+}
+
+function drawFrame() {
+  const canvas = document.getElementById('navCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0,0,W,H);
+
+  if (!imgLoaded) return;
+
+  // Fit image maintaining aspect ratio
+  const scale = Math.min(W / navImg.width, H / navImg.height);
+  const iw = navImg.width * scale;
+  const ih = navImg.height * scale;
+  const ix = (W - iw) / 2;
+  const iy = (H - ih) / 2;
+  ctx.drawImage(navImg, ix, iy, iw, ih);
+  canvas._b = { ix, iy, iw, ih }; // store for GPS mapping
+
+  // Draw polygon outline on image
+  if (polygon.length >= 3) {
+    const b = getBBox();
+    ctx.beginPath();
+    polygon.forEach((pt, i) => {
+      const [px, py] = gpsToPixel(pt[0], pt[1], b, canvas._b);
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    });
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(255,240,60,0.9)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6,4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw GPS dot if we have a fix
+  if (lastGPS) drawDot(ctx, lastGPS.lat, lastGPS.lng, canvas._b);
+}
+
+function getBBox() {
+  const lats = polygon.map(p => p[0]);
+  const lngs = polygon.map(p => p[1]);
+  return {
+    minLat: Math.min(...lats), maxLat: Math.max(...lats),
+    minLng: Math.min(...lngs), maxLng: Math.max(...lngs)
+  };
+}
+
+function gpsToPixel(lat, lng, bbox, imgBounds) {
+  const { minLat, maxLat, minLng, maxLng } = bbox;
+  const { ix, iy, iw, ih } = imgBounds;
+  const px = ix + ((lng - minLng) / (maxLng - minLng)) * iw;
+  const py = iy + ((maxLat - lat) / (maxLat - minLat)) * ih;
+  return [px, py];
+}
+
+function drawDot(ctx, lat, lng, imgBounds) {
+  if (!polygon.length) return;
+  const b = getBBox();
+  const [px, py] = gpsToPixel(lat, lng, b, imgBounds);
+  const inside = lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng;
+  const col = inside ? '#00e676' : '#ff5252';
+
+  // Outer glow
+  ctx.beginPath();
+  ctx.arc(px, py, 16, 0, Math.PI*2);
+  ctx.fillStyle = inside ? 'rgba(0,230,118,0.18)' : 'rgba(255,82,82,0.18)';
+  ctx.fill();
+
+  // Middle ring
+  ctx.beginPath();
+  ctx.arc(px, py, 9, 0, Math.PI*2);
+  ctx.fillStyle = inside ? 'rgba(0,230,118,0.35)' : 'rgba(255,82,82,0.35)';
+  ctx.fill();
+
+  // Solid dot
+  ctx.beginPath();
+  ctx.arc(px, py, 6, 0, Math.PI*2);
+  ctx.fillStyle = col;
+  ctx.fill();
+  ctx.strokeStyle = 'white';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+}
+
+// ── MAP MODE ──────────────────────────────────────────────────
+function initMapView() {
+  if (!navMap) {
+    const center = polygon.length ? polygon[0] : [11.0, 78.0];
+    navMap = L.map('navMap', { zoomControl: true }).setView(center, 16);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { attribution: '© OpenStreetMap' }).addTo(navMap);
+  }
+
+  if (!mapPolyDrawn && polygon.length >= 3) {
+    L.polygon(polygon, {
+      color: '#f5e020', weight: 2.5,
+      fillColor: '#4caf50', fillOpacity: 0.12
+    }).addTo(navMap);
+    const lats = polygon.map(p=>p[0]), lngs = polygon.map(p=>p[1]);
+    navMap.fitBounds([
+      [Math.min(...lats), Math.min(...lngs)],
+      [Math.max(...lats), Math.max(...lngs)]
+    ], { padding: [20,20] });
+    mapPolyDrawn = true;
+  }
+
+  setTimeout(() => navMap.invalidateSize(), 150);
+  if (lastGPS) updateMapDot(lastGPS.lat, lastGPS.lng);
+}
+
+function updateMapDot(lat, lng) {
+  if (!navMap) return;
+  if (gpsMarker) navMap.removeLayer(gpsMarker);
+  gpsMarker = L.circleMarker([lat, lng], {
+    radius: 9, color: '#1a6b3a', weight: 2,
+    fillColor: '#00e676', fillOpacity: 1
+  }).addTo(navMap);
+}
+
+// ── GPS ───────────────────────────────────────────────────────
+function startGPS() {
+  const pill = document.getElementById('gpsPill');
+  if (!navigator.geolocation) {
+    pill.textContent = '❌ GPS not available'; pill.className = 'bd'; return;
+  }
+  gpsWatcher = navigator.geolocation.watchPosition(pos => {
+    lastGPS = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    const acc = Math.round(pos.coords.accuracy);
+    pill.textContent = `📍 GPS ±${acc}m`;
+    pill.className = acc <= 15 ? 'gd' : '';
+    if (curMode === 'image') drawFrame();
+    if (curMode === 'map') updateMapDot(lastGPS.lat, lastGPS.lng);
+  }, () => {
+    pill.textContent = '❌ Allow location access';
+    pill.className = 'bd';
+  }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+}
+
+function stopGPS() {
+  if (gpsWatcher != null) { navigator.geolocation.clearWatch(gpsWatcher); gpsWatcher = null; }
+  lastGPS = null;
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function showErr(msg) {
+  document.getElementById('hName').textContent = 'FarmView';
+  document.getElementById('cards').innerHTML =
+    `<div class="empty"><div class="ico">❌</div><p>${msg}</p></div>`;
+}
+
+window.addEventListener('resize', () => {
+  if (curMode === 'image' && imgLoaded) { fitCanvas(); drawFrame(); }
+});
+
+init();
+</script>
+</body>
+</html>
