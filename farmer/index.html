@@ -2,99 +2,284 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>FarmView</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1F2E1A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FarmView">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Segoe UI', sans-serif; background: #f0f4f0; color: #1a2e1a; }
+:root {
+  --bg: #F4F6EE;
+  --surface: #FFFFFF;
+  --surface-alt: #EBF0E2;
+  --ink: #1F2E1A;
+  --ink-soft: #76836F;
+  --accent: #4F7942;
+  --accent-deep: #324D29;
+  --highlight: #E8A33D;
+  --alert: #D1495B;
+  --good: #3DDC84;
+  --line: #DEE6D6;
+  --radius: 18px;
+  font-size: 16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { background: var(--bg); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+}
+.display { font-family: 'Fraunces', Georgia, serif; }
 
-header { background: #1a6b3a; color: white; padding: 12px 16px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
-.h-name { font-size: 15px; font-weight: 700; }
-.h-village { font-size: 12px; opacity: 0.75; }
+/* ── HEADER ─────────────────────────────────────────────── */
+.header {
+  background: var(--ink);
+  color: #fff;
+  padding: calc(22px + env(safe-area-inset-top)) 20px 26px;
+  border-radius: 0 0 26px 26px;
+  position: relative;
+  overflow: hidden;
+}
+.header .topo { position: absolute; inset: 0; opacity: 0.14; }
+.header-inner { position: relative; z-index: 1; }
+.brand {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  opacity: 0.6; margin-bottom: 16px;
+}
+.brand .leaf { font-size: 14px; }
+.farmer-name { font-size: 26px; font-weight: 600; line-height: 1.2; }
+.farmer-meta { font-size: 13px; opacity: 0.65; margin-top: 5px; display: flex; gap: 10px; flex-wrap: wrap; }
+.farmer-meta span::before { content: "•"; margin-right: 10px; opacity: 0.6; }
+.farmer-meta span:first-child::before { content: ""; margin-right: 0; }
 
-.section { padding: 14px 14px 0; }
-.section-title { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+/* ── INSTALL BANNER ─────────────────────────────────────── */
+.install-banner {
+  margin: 14px 16px 0; background: var(--surface-alt);
+  border: 1px solid var(--line); border-radius: 14px;
+  padding: 12px 14px; display: none; align-items: center; gap: 12px;
+}
+.install-banner.show { display: flex; }
+.install-banner .ib-icon { font-size: 22px; flex-shrink: 0; }
+.install-banner .ib-text { flex: 1; font-size: 12.5px; line-height: 1.45; color: var(--ink); }
+.install-banner .ib-text b { display: block; font-size: 13.5px; margin-bottom: 1px; }
+.install-banner button {
+  background: var(--accent); color: #fff; border: none; border-radius: 9px;
+  padding: 8px 13px; font-size: 12.5px; font-weight: 700; cursor: pointer; flex-shrink: 0;
+}
+.install-banner .ib-close {
+  background: none; color: var(--ink-soft); font-size: 18px; padding: 0 2px; font-weight: 400;
+}
 
-.img-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,0.09); margin-bottom: 12px; }
-.img-card img { width: 100%; display: block; cursor: pointer; }
-.img-card-foot { padding: 10px 14px 12px; display: flex; align-items: center; gap: 10px; }
-.img-date { font-size: 13px; font-weight: 600; flex: 1; }
-.img-notes { font-size: 12px; color: #666; }
-.tag-latest { font-size: 10px; background: #e8f4ec; color: #1a6b3a; padding: 2px 7px; border-radius: 20px; font-weight: 600; margin-left: 6px; }
-.btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 13px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s; text-decoration: none; }
-.btn-nav { background: #1a6b3a; color: white; }
-.btn-dl { background: #e8f4ec; color: #1a6b3a; }
-.btns { display: flex; gap: 7px; }
+/* ── SECTION ────────────────────────────────────────────── */
+.section-label {
+  font-size: 11px; font-weight: 700; color: var(--ink-soft);
+  text-transform: uppercase; letter-spacing: 0.12em;
+  margin: 22px 20px 12px;
+}
 
-/* FULLSCREEN VIEWER */
-#viewer { display: none; position: fixed; inset: 0; background: #111; z-index: 500; flex-direction: column; }
+/* ── CARDS ──────────────────────────────────────────────── */
+.card {
+  background: var(--surface); border-radius: var(--radius);
+  overflow: hidden; margin: 0 16px 14px;
+  box-shadow: 0 1px 2px rgba(31,46,26,0.06), 0 10px 28px -16px rgba(31,46,26,0.35);
+}
+.card-img-wrap { position: relative; cursor: pointer; }
+.card img { width: 100%; aspect-ratio: 16/11; object-fit: cover; display: block; background: var(--surface-alt); }
+.card-img-wrap .layer-count {
+  position: absolute; bottom: 10px; right: 10px;
+  background: rgba(31,46,26,0.72); color: #fff; font-size: 11px; font-weight: 600;
+  padding: 4px 9px; border-radius: 20px; backdrop-filter: blur(4px);
+}
+.card-body { padding: 14px 16px 16px; }
+.card-date {
+  font-size: 17px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+}
+.tag-latest {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  background: var(--highlight); color: #fff; padding: 3px 9px; border-radius: 20px;
+}
+.card-notes { font-size: 13px; color: var(--ink-soft); margin-top: 5px; line-height: 1.55; }
+.card-actions { display: flex; gap: 9px; margin-top: 13px; }
+.btn {
+  border: none; border-radius: 11px; font-size: 13.5px; font-weight: 700;
+  padding: 11px 16px; cursor: pointer; display: inline-flex; align-items: center;
+  justify-content: center; gap: 6px; text-decoration: none; transition: transform 0.1s, opacity 0.2s;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent); color: #fff; flex: 1.4; }
+.btn-ghost { background: var(--surface-alt); color: var(--accent-deep); flex: 1; }
+
+.empty {
+  text-align: center; padding: 56px 28px; color: var(--ink-soft);
+}
+.empty .ico { font-size: 46px; margin-bottom: 14px; }
+.empty .display { font-size: 19px; color: var(--ink); margin-bottom: 6px; }
+.empty p { font-size: 13.5px; line-height: 1.6; }
+
+/* ── FULLSCREEN VIEWER ──────────────────────────────────── */
+#viewer {
+  display: none; position: fixed; inset: 0; background: var(--ink);
+  z-index: 500; flex-direction: column;
+}
 #viewer.open { display: flex; }
 
-.vbar { background: rgba(0,0,0,0.88); padding: 10px 12px; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.vtitle { color: white; font-size: 13px; font-weight: 600; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.vtoggle { background: #1a6b3a; color: white; border: none; border-radius: 7px; padding: 6px 11px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.vclose { background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 7px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+.vbar {
+  padding: calc(12px + env(safe-area-inset-top)) 14px 10px;
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.vclose {
+  background: rgba(255,255,255,0.1); color: #fff; border: none;
+  width: 34px; height: 34px; border-radius: 10px; font-size: 16px;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+}
+.vtitle { color: #fff; font-size: 14.5px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* IMAGE MODE — canvas fills the rest */
-#imgMode { flex: 1; position: relative; display: flex; flex-direction: column; }
-#imgMode.hidden { display: none; }
-#navCanvas { display: block; width: 100%; flex: 1; }
+/* Lens dial — signature 3-way layer switcher */
+.lens-dial {
+  position: relative; display: flex; background: rgba(255,255,255,0.08);
+  border-radius: 14px; padding: 4px; margin: 0 14px 12px; flex-shrink: 0;
+}
+.lens-indicator {
+  position: absolute; top: 4px; left: 4px; bottom: 4px;
+  width: calc((100% - 8px) / 3); background: var(--accent);
+  border-radius: 11px; transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+}
+.lens-opt {
+  flex: 1; position: relative; z-index: 1; border: none; background: transparent;
+  color: rgba(255,255,255,0.6); padding: 9px 4px; cursor: pointer; border-radius: 11px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 11px; font-weight: 700; transition: color 0.2s; letter-spacing: 0.02em;
+}
+.lens-opt .ic { font-size: 17px; line-height: 1; }
+.lens-opt.active { color: #fff; }
 
-/* GPS pill floating top-left */
-#gpsPill { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.72); color: white; font-size: 12px; padding: 5px 11px; border-radius: 20px; pointer-events: none; }
-#gpsPill.gd { background: rgba(22,100,50,0.92); }
-#gpsPill.bd { background: rgba(170,30,30,0.88); }
-
-/* compass help text at bottom of image mode */
-#imgHelp { background: rgba(0,0,0,0.7); color: rgba(255,255,255,0.75); font-size: 11px; text-align: center; padding: 6px; flex-shrink: 0; }
-
-/* MAP MODE */
-#mapMode { flex: 1; display: none; }
-#mapMode.active { display: block; }
+/* Stage */
+#stage { flex: 1; position: relative; overflow: hidden; background: #0c1410; }
+#navCanvas { width: 100%; height: 100%; display: block; }
 #navMap { width: 100%; height: 100%; }
+.layer-pane { position: absolute; inset: 0; display: none; }
+.layer-pane.active { display: block; }
 
-/* empty / error */
-.empty { text-align: center; padding: 60px 24px; color: #888; }
-.empty .ico { font-size: 52px; margin-bottom: 12px; }
-.empty p { font-size: 14px; line-height: 1.6; }
+.layer-placeholder {
+  position: absolute; inset: 0; display: none; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  color: rgba(255,255,255,0.55); padding: 30px;
+}
+.layer-placeholder.show { display: flex; }
+.layer-placeholder .ph-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.7; }
+.layer-placeholder .ph-title { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.85); margin-bottom: 4px; }
+.layer-placeholder .ph-sub { font-size: 12.5px; max-width: 240px; line-height: 1.5; }
+
+/* GPS pill */
+.gps-pill {
+  position: absolute; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%;
+  transform: translateX(-50%); background: rgba(20,30,17,0.82);
+  backdrop-filter: blur(8px); color: #fff; font-size: 12.5px; font-weight: 600;
+  padding: 9px 17px; border-radius: 24px; display: flex; align-items: center; gap: 7px;
+  white-space: nowrap; z-index: 5; box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+.gps-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--alert); flex-shrink: 0; transition: background 0.2s; }
+.gps-pill.good .dot { background: var(--good); box-shadow: 0 0 0 4px rgba(61,220,132,0.2); }
+.gps-pill.warn .dot { background: var(--highlight); }
+
+/* legend pill */
+.legend-pill {
+  position: absolute; top: 14px; left: 14px; background: rgba(20,30,17,0.78);
+  backdrop-filter: blur(8px); color: rgba(255,255,255,0.85); font-size: 11px;
+  padding: 7px 12px; border-radius: 12px; z-index: 5; line-height: 1.5;
+}
+.legend-pill .lg-row { display: flex; align-items: center; gap: 6px; margin: 1px 0; }
+.legend-pill .sw { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
 </style>
 </head>
 <body>
 
-<header>
-  <span style="font-size:22px">🌾</span>
-  <div>
-    <div class="h-name" id="hName">Loading…</div>
-    <div class="h-village" id="hVillage"></div>
+<header class="header">
+  <svg class="topo" viewBox="0 0 400 220" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M-20,40 C40,10 90,75 150,42 C210,12 260,78 320,45 C360,25 400,50 430,40" stroke="#9CB893" stroke-width="2" fill="none"/>
+    <path d="M-20,90 C40,60 90,125 150,92 C210,62 260,128 320,95 C360,75 400,100 430,90" stroke="#9CB893" stroke-width="2" fill="none"/>
+    <path d="M-20,150 C40,120 90,185 150,152 C210,122 260,188 320,155 C360,135 400,160 430,150" stroke="#9CB893" stroke-width="2" fill="none"/>
+    <path d="M-20,200 C40,170 90,235 150,202 C210,172 260,238 320,205 C360,185 400,210 430,200" stroke="#9CB893" stroke-width="2" fill="none"/>
+  </svg>
+  <div class="header-inner">
+    <div class="brand"><span class="leaf">🌿</span> FarmView</div>
+    <div class="farmer-name display" id="hName">Loading…</div>
+    <div class="farmer-meta">
+      <span id="hVillage"></span>
+      <span id="hPlot" style="display:none"></span>
+    </div>
   </div>
 </header>
 
-<div class="section">
-  <div class="section-title">Field Reports</div>
-  <div id="cards"><div class="empty"><div class="ico">⏳</div><p>Loading your field data…</p></div></div>
+<div class="install-banner" id="installBanner">
+  <div class="ib-icon">📲</div>
+  <div class="ib-text">
+    <b>Add FarmView to your home screen</b>
+    <span id="installText">Open it like an app — faster, full screen, works offline.</span>
+  </div>
+  <button id="installBtn">Install</button>
+  <button class="ib-close" onclick="dismissInstall()">✕</button>
 </div>
+
+<div class="section-label">Field Reports</div>
+<div id="cards"><div class="empty"><div class="ico">⏳</div><p>Loading your field data…</p></div></div>
 
 <!-- FULLSCREEN VIEWER -->
 <div id="viewer">
   <div class="vbar">
-    <div class="vtitle" id="vtitle">Field Index</div>
-    <button class="vtoggle" id="vtoggleBtn" onclick="toggleView()">🗺 Map View</button>
     <button class="vclose" onclick="closeViewer()">✕</button>
+    <div class="vtitle" id="vtitle">Field Report</div>
   </div>
 
-  <!-- IMAGE MODE -->
-  <div id="imgMode">
-    <canvas id="navCanvas"></canvas>
-    <div id="gpsPill">📡 Getting GPS…</div>
-    <div id="imgHelp">🟢 Green dot = your position on the field index map</div>
+  <div class="lens-dial">
+    <div class="lens-indicator" id="lensIndicator"></div>
+    <button class="lens-opt" data-layer="index" onclick="setLayer('index')">
+      <span class="ic">🌿</span><span>Index</span>
+    </button>
+    <button class="lens-opt" data-layer="ortho" onclick="setLayer('ortho')">
+      <span class="ic">📷</span><span>True Color</span>
+    </button>
+    <button class="lens-opt" data-layer="satellite" onclick="setLayer('satellite')">
+      <span class="ic">🛰</span><span>Satellite</span>
+    </button>
   </div>
 
-  <!-- MAP MODE (satellite/OSM with polygon outline) -->
-  <div id="mapMode">
-    <div id="navMap"></div>
+  <div id="stage">
+    <div class="layer-pane" id="paneCanvas"><canvas id="navCanvas"></canvas></div>
+    <div class="layer-pane" id="paneMap"><div id="navMap"></div></div>
+
+    <div class="layer-placeholder" id="placeholder">
+      <div class="ph-icon">🌱</div>
+      <div class="ph-title">Not available for this survey</div>
+      <div class="ph-sub">This layer hasn't been uploaded for this date yet.</div>
+    </div>
+
+    <div class="legend-pill" id="legendPill" style="display:none">
+      <div class="lg-row"><span class="sw" style="background:#00e676"></span> You are here</div>
+      <div class="lg-row"><span class="sw" style="background:var(--highlight)"></span> Plot boundary</div>
+    </div>
+
+    <div class="gps-pill" id="gpsPill"><span class="dot"></span><span id="gpsText">Getting GPS…</span></div>
   </div>
 </div>
 
@@ -104,41 +289,88 @@ const SUPABASE_URL = 'https://xkvjimbtjfkvbxrrurit.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrdmppbWJ0amZrdmJ4cnJ1cml0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDYwMDQsImV4cCI6MjA5NjkyMjAwNH0.0ppKgbzs4QtdjHKHQGiZHRSXhYH3Wb_lTnpTOYh0ypY';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ── SERVICE WORKER (PWA) ─────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+
+// ── INSTALL PROMPT ────────────────────────────────────────────
+let deferredInstall = null;
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstall = e;
+  if (!isStandalone && !localStorage.getItem('fv_install_dismissed')) {
+    document.getElementById('installBanner').classList.add('show');
+  }
+});
+
+document.getElementById('installBtn').onclick = async () => {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    await deferredInstall.userChoice;
+    deferredInstall = null;
+    document.getElementById('installBanner').classList.remove('show');
+  } else if (isIOS) {
+    document.getElementById('installText').textContent =
+      'Tap the Share icon ⬆️ below, then "Add to Home Screen".';
+  }
+};
+
+function dismissInstall() {
+  document.getElementById('installBanner').classList.remove('show');
+  localStorage.setItem('fv_install_dismissed', '1');
+}
+
+// Show iOS instructions banner (no beforeinstallprompt on iOS Safari)
+if (isIOS && !isStandalone && !localStorage.getItem('fv_install_dismissed')) {
+  document.getElementById('installText').textContent =
+    'Tap the Share icon ⬆️, then "Add to Home Screen" for the full app experience.';
+  document.getElementById('installBanner').classList.add('show');
+}
+
 // ── STATE ─────────────────────────────────────────────────────
-let polygon = [];       // [[lat,lng], ...] from farmer's KML
-let curMode = 'image';  // 'image' | 'map'
+let polygon = [];        // [[lat,lng], ...]
+let groups = [];          // [{dateKey, dateLabel, indexUrl, orthoUrl, notes}]
+let curLayer = 'index';
 let lastGPS = null;
 let gpsWatcher = null;
+let wakeLock = null;
 let navMap = null;
 let gpsMarker = null;
 let mapPolyDrawn = false;
 let navImg = new Image();
 let imgLoaded = false;
+let currentGroup = null;
+let lastHeading = null;
+
+const LAYER_ORDER = ['index', 'ortho', 'satellite'];
 
 // ── BOOT ──────────────────────────────────────────────────────
 async function init() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
-  if (!id) { showErr('Invalid link — contact your coordinator.'); return; }
+  if (!id) { showErr('Invalid link — please contact your coordinator.'); return; }
 
-  // Load farmer
-  const { data: farmer, error: fe } = await sb
-    .from('farmers').select('*').eq('id', id).single();
-
-  if (fe || !farmer) {
-    showErr('Farmer profile not found.<br>Please contact your coordinator.');
-    return;
-  }
+  const { data: farmer, error: fe } = await sb.from('farmers').select('*').eq('id', id).single();
+  if (fe || !farmer) { showErr('Farmer profile not found.<br>Please contact your coordinator.'); return; }
 
   document.getElementById('hName').textContent = farmer.name;
-  document.getElementById('hVillage').textContent = farmer.village;
+  document.getElementById('hVillage').textContent = farmer.village || '';
+  if (farmer.plot_number) {
+    document.getElementById('hPlot').textContent = farmer.plot_number;
+    document.getElementById('hPlot').style.display = 'inline';
+  }
   document.title = farmer.name + ' — FarmView';
 
   if (farmer.polygon_coords) {
     try { polygon = JSON.parse(farmer.polygon_coords); } catch(e) { polygon = []; }
   }
 
-  // Load images
   const { data: images, error: ie } = await sb
     .from('farm_images').select('*')
     .eq('farmer_id', id)
@@ -146,232 +378,246 @@ async function init() {
 
   if (ie || !images || images.length === 0) {
     document.getElementById('cards').innerHTML =
-      `<div class="empty"><div class="ico">🌱</div><p>No field reports yet.<br>Check back after the next survey!</p></div>`;
+      `<div class="empty"><div class="ico">🌱</div><div class="display">No field reports yet</div><p>Check back after the next survey — your field health map will appear here.</p></div>`;
     return;
   }
 
-  renderCards(images);
+  groups = groupImages(images);
+  renderCards(groups);
 }
 
-function renderCards(images) {
-  document.getElementById('cards').innerHTML = images.map((img, i) => {
-    const dateStr = fmtDate(img.uploaded_at);
-    return `
-    <div class="img-card">
-      <img src="${img.image_url}" loading="${i===0?'eager':'lazy'}"
-           onclick="openViewer('${img.image_url}','${dateStr}')">
-      <div class="img-card-foot">
-        <div style="flex:1">
-          <div class="img-date">
-            📅 ${dateStr}
-            ${i===0 ? '<span class="tag-latest">Latest</span>' : ''}
-          </div>
-          ${img.notes ? `<div class="img-notes">${img.notes}</div>` : ''}
-        </div>
-        <div class="btns">
-          <button class="btn btn-nav" onclick="openViewer('${img.image_url}','${dateStr}')">📍 Navigate</button>
-          <a class="btn btn-dl" href="${img.image_url}" target="_blank" download>⬇</a>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
+// Group images by survey date; pair index + true-colour for the same date
+function groupImages(images) {
+  const map = new Map();
+  images.forEach(img => {
+    const key = new Date(img.uploaded_at).toDateString();
+    const type = img.image_type || 'index';
+    if (!map.has(key)) {
+      map.set(key, { dateKey: key, dateLabel: fmtDate(img.uploaded_at), indexUrl: null, orthoUrl: null, notes: '' });
+    }
+    const g = map.get(key);
+    if (type === 'ortho') { if (!g.orthoUrl) g.orthoUrl = img.image_url; }
+    else { if (!g.indexUrl) g.indexUrl = img.image_url; }
+    if (!g.notes && img.notes) g.notes = img.notes;
+  });
+  return Array.from(map.values());
 }
 
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
 }
 
-// ── VIEWER OPEN / CLOSE ───────────────────────────────────────
-function openViewer(url, dateStr) {
-  document.getElementById('vtitle').textContent = 'Index Map — ' + dateStr;
-  document.getElementById('viewer').classList.add('open');
-  curMode = 'image';
-  document.getElementById('vtoggleBtn').textContent = '🗺 Map View';
-  document.getElementById('imgMode').classList.remove('hidden');
-  document.getElementById('mapMode').classList.remove('active');
+function renderCards(groups) {
+  document.getElementById('cards').innerHTML = groups.map((g, i) => {
+    const thumb = g.indexUrl || g.orthoUrl;
+    const layerCount = (g.indexUrl?1:0) + (g.orthoUrl?1:0) + (polygon.length>=3?1:0);
+    return `
+    <div class="card">
+      <div class="card-img-wrap" onclick="openViewer(${i})">
+        <img src="${thumb}" loading="${i===0?'eager':'lazy'}">
+        <div class="layer-count">${layerCount} layer${layerCount===1?'':'s'}</div>
+      </div>
+      <div class="card-body">
+        <div class="card-date display">
+          📅 ${g.dateLabel}
+          ${i===0 ? '<span class="tag-latest">Latest</span>' : ''}
+        </div>
+        ${g.notes ? `<div class="card-notes">${g.notes}</div>` : ''}
+        <div class="card-actions">
+          <button class="btn btn-primary" onclick="openViewer(${i})">📍 Open & Navigate</button>
+          <a class="btn btn-ghost" href="${thumb}" target="_blank" download>⬇ Save</a>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-  // Load the index image onto canvas
-  imgLoaded = false;
-  navImg = new Image();
-  navImg.crossOrigin = 'anonymous';
-  navImg.onload = () => {
-    imgLoaded = true;
-    fitCanvas();
-    drawFrame();
-  };
-  navImg.onerror = () => {
-    // If CORS blocks canvas, fall back to <img> display
-    imgLoaded = false;
-    const canvas = document.getElementById('navCanvas');
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#222';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.font = '14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Image loading…', canvas.width/2, canvas.height/2);
-  };
-  navImg.src = url;
+// ── VIEWER ────────────────────────────────────────────────────
+function openViewer(i) {
+  currentGroup = groups[i];
+  document.getElementById('vtitle').textContent = 'Field Report — ' + currentGroup.dateLabel;
+  document.getElementById('viewer').classList.add('open');
+
+  // pick default layer: index > ortho > satellite
+  let def = 'index';
+  if (!currentGroup.indexUrl) def = currentGroup.orthoUrl ? 'ortho' : 'satellite';
+  setLayer(def);
 
   startGPS();
+  requestWakeLock();
+  startCompass();
 }
 
 function closeViewer() {
   document.getElementById('viewer').classList.remove('open');
   stopGPS();
+  releaseWakeLock();
 }
 
-// ── TOGGLE IMAGE ↔ MAP ────────────────────────────────────────
-function toggleView() {
-  if (curMode === 'image') {
-    curMode = 'map';
-    document.getElementById('vtoggleBtn').textContent = '🖼 Index View';
-    document.getElementById('imgMode').classList.add('hidden');
-    document.getElementById('mapMode').classList.add('active');
-    initMapView();
-  } else {
-    curMode = 'image';
-    document.getElementById('vtoggleBtn').textContent = '🗺 Map View';
-    document.getElementById('imgMode').classList.remove('hidden');
-    document.getElementById('mapMode').classList.remove('active');
-    drawFrame();
+// ── LENS DIAL / LAYER SWITCHING ───────────────────────────────
+function setLayer(layer) {
+  curLayer = layer;
+  const idx = LAYER_ORDER.indexOf(layer);
+  document.getElementById('lensIndicator').style.transform = `translateX(${idx * 100}%)`;
+  document.querySelectorAll('.lens-opt').forEach(b => b.classList.toggle('active', b.dataset.layer === layer));
+
+  const placeholder = document.getElementById('placeholder');
+  const paneCanvas = document.getElementById('paneCanvas');
+  const paneMap = document.getElementById('paneMap');
+  const legend = document.getElementById('legendPill');
+  placeholder.classList.remove('show');
+  paneCanvas.classList.remove('active');
+  paneMap.classList.remove('active');
+
+  if (layer === 'satellite') {
+    paneMap.classList.add('active');
+    legend.style.display = polygon.length >= 3 ? 'block' : 'none';
+    initSatellite();
+    return;
   }
+
+  const url = layer === 'index' ? currentGroup.indexUrl : currentGroup.orthoUrl;
+  legend.style.display = (polygon.length >= 3) ? 'block' : 'none';
+
+  if (!url) {
+    placeholder.classList.add('show');
+    legend.style.display = 'none';
+    document.getElementById('placeholder').querySelector('.ph-title').textContent = 'Not available for this survey';
+    document.getElementById('placeholder').querySelector('.ph-sub').textContent =
+      layer === 'index' ? 'No vegetation index image uploaded for this date.' : 'No true-colour (orthomosaic) image uploaded for this date.';
+    return;
+  }
+
+  paneCanvas.classList.add('active');
+  loadCanvasImage(url);
 }
 
-// ── IMAGE MODE — the key feature ─────────────────────────────
+// ── IMAGE LAYERS (Index / True Color) ─────────────────────────
 /*
-  HOW GPS-ON-INDEX-IMAGE WORKS:
-  ─────────────────────────────
-  1. We have the farmer's plot polygon as GPS coordinates (lat/lng).
-  2. We compute the bounding box of that polygon (min/max lat and lng).
-  3. The index screenshot is assumed to cover exactly that bounding box
-     (because you took the screenshot of just that field in Pix4DFields).
-  4. We map any GPS point into image pixel coordinates using simple
-     linear interpolation:
-       pixel_x = (lng - minLng) / (maxLng - minLng) * imageWidth
-       pixel_y = (maxLat - lat) / (maxLat - minLat) * imageHeight
-     (Y is flipped because latitude increases upward but pixels go down)
-  5. We draw a glowing dot at that pixel position on the canvas.
-  6. This updates every time the GPS changes (~every 3 seconds while walking).
-  Result: farmer sees their exact position on the colour index map.
+  GPS → PIXEL MAPPING
+  ────────────────────
+  The plot polygon (from your KML) gives the real-world GPS bounding box
+  of the field. The uploaded screenshot is assumed to cover that same box
+  (since you cropped it to the plot in Pix4DFields).
+
+    pixel_x = (lng - minLng) / (maxLng - minLng) * imageWidth
+    pixel_y = (maxLat - lat) / (maxLat - minLat) * imageHeight
+
+  This works identically for the Index layer and the True Color layer —
+  both are just images placed over the same GPS box.
 */
+function loadCanvasImage(url) {
+  imgLoaded = false;
+  navImg = new Image();
+  navImg.crossOrigin = 'anonymous';
+  navImg.onload = () => { imgLoaded = true; fitCanvas(); drawFrame(); };
+  navImg.onerror = () => {
+    imgLoaded = false;
+    const canvas = document.getElementById('navCanvas');
+    const ctx = canvas.getContext('2d');
+    fitCanvas();
+    ctx.fillStyle = '#0c1410'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Image could not be loaded', canvas.width/2, canvas.height/2);
+  };
+  navImg.src = url;
+}
 
 function fitCanvas() {
   const canvas = document.getElementById('navCanvas');
-  const cont = document.getElementById('imgMode');
-  // canvas fills available space
+  const cont = document.getElementById('stage');
   canvas.width = cont.clientWidth;
-  canvas.height = cont.clientHeight - document.getElementById('imgHelp').offsetHeight;
+  canvas.height = cont.clientHeight;
 }
 
 function drawFrame() {
   const canvas = document.getElementById('navCanvas');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
-
-  ctx.fillStyle = '#111';
-  ctx.fillRect(0,0,W,H);
-
+  ctx.fillStyle = '#0c1410'; ctx.fillRect(0,0,W,H);
   if (!imgLoaded) return;
 
-  // Fit image maintaining aspect ratio
   const scale = Math.min(W / navImg.width, H / navImg.height);
-  const iw = navImg.width * scale;
-  const ih = navImg.height * scale;
-  const ix = (W - iw) / 2;
-  const iy = (H - ih) / 2;
+  const iw = navImg.width * scale, ih = navImg.height * scale;
+  const ix = (W - iw) / 2, iy = (H - ih) / 2;
   ctx.drawImage(navImg, ix, iy, iw, ih);
-  canvas._b = { ix, iy, iw, ih }; // store for GPS mapping
+  const bounds = { ix, iy, iw, ih };
 
-  // Draw polygon outline on image
   if (polygon.length >= 3) {
     const b = getBBox();
     ctx.beginPath();
     polygon.forEach((pt, i) => {
-      const [px, py] = gpsToPixel(pt[0], pt[1], b, canvas._b);
+      const [px, py] = gpsToPixel(pt[0], pt[1], b, bounds);
       i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
     });
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(255,240,60,0.9)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6,4]);
+    ctx.strokeStyle = 'rgba(232,163,61,0.95)';
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash([7,5]);
     ctx.stroke();
     ctx.setLineDash([]);
-  }
 
-  // Draw GPS dot if we have a fix
-  if (lastGPS) drawDot(ctx, lastGPS.lat, lastGPS.lng, canvas._b);
+    if (lastGPS) drawDot(ctx, lastGPS.lat, lastGPS.lng, bounds, b);
+  }
 }
 
 function getBBox() {
-  const lats = polygon.map(p => p[0]);
-  const lngs = polygon.map(p => p[1]);
-  return {
-    minLat: Math.min(...lats), maxLat: Math.max(...lats),
-    minLng: Math.min(...lngs), maxLng: Math.max(...lngs)
-  };
+  const lats = polygon.map(p => p[0]), lngs = polygon.map(p => p[1]);
+  return { minLat: Math.min(...lats), maxLat: Math.max(...lats), minLng: Math.min(...lngs), maxLng: Math.max(...lngs) };
 }
-
-function gpsToPixel(lat, lng, bbox, imgBounds) {
-  const { minLat, maxLat, minLng, maxLng } = bbox;
-  const { ix, iy, iw, ih } = imgBounds;
-  const px = ix + ((lng - minLng) / (maxLng - minLng)) * iw;
-  const py = iy + ((maxLat - lat) / (maxLat - minLat)) * ih;
+function gpsToPixel(lat, lng, bbox, img) {
+  const px = img.ix + ((lng - bbox.minLng) / (bbox.maxLng - bbox.minLng)) * img.iw;
+  const py = img.iy + ((bbox.maxLat - lat) / (bbox.maxLat - bbox.minLat)) * img.ih;
   return [px, py];
 }
 
-function drawDot(ctx, lat, lng, imgBounds) {
-  if (!polygon.length) return;
-  const b = getBBox();
-  const [px, py] = gpsToPixel(lat, lng, b, imgBounds);
-  const inside = lat >= b.minLat && lat <= b.maxLat && lng >= b.minLng && lng <= b.maxLng;
+function drawDot(ctx, lat, lng, imgBounds, bbox) {
+  const [px, py] = gpsToPixel(lat, lng, bbox, imgBounds);
+  const inside = lat >= bbox.minLat && lat <= bbox.maxLat && lng >= bbox.minLng && lng <= bbox.maxLng;
   const col = inside ? '#00e676' : '#ff5252';
 
-  // Outer glow
-  ctx.beginPath();
-  ctx.arc(px, py, 16, 0, Math.PI*2);
-  ctx.fillStyle = inside ? 'rgba(0,230,118,0.18)' : 'rgba(255,82,82,0.18)';
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(px, py, 17, 0, Math.PI*2);
+  ctx.fillStyle = inside ? 'rgba(0,230,118,0.16)' : 'rgba(255,82,82,0.16)'; ctx.fill();
 
-  // Middle ring
-  ctx.beginPath();
-  ctx.arc(px, py, 9, 0, Math.PI*2);
-  ctx.fillStyle = inside ? 'rgba(0,230,118,0.35)' : 'rgba(255,82,82,0.35)';
-  ctx.fill();
+  ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI*2);
+  ctx.fillStyle = inside ? 'rgba(0,230,118,0.35)' : 'rgba(255,82,82,0.35)'; ctx.fill();
 
-  // Solid dot
-  ctx.beginPath();
-  ctx.arc(px, py, 6, 0, Math.PI*2);
-  ctx.fillStyle = col;
-  ctx.fill();
-  ctx.strokeStyle = 'white';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2);
+  ctx.fillStyle = col; ctx.fill();
+  ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Heading arrow (if compass available)
+  if (lastHeading !== null) {
+    const rad = (lastHeading * Math.PI) / 180;
+    const len = 15;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(rad);
+    ctx.beginPath();
+    ctx.moveTo(0, -len);
+    ctx.lineTo(5, -9);
+    ctx.lineTo(-5, -9);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fill();
+    ctx.restore();
+  }
 }
 
-// ── MAP MODE ──────────────────────────────────────────────────
-function initMapView() {
+// ── SATELLITE LAYER ────────────────────────────────────────────
+function initSatellite() {
   if (!navMap) {
-    const center = polygon.length ? polygon[0] : [11.0, 78.0];
-    navMap = L.map('navMap', { zoomControl: true }).setView(center, 18);
-
-    // Satellite imagery — Google hybrid (satellite + labels)
-    L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-      attribution: '© Google Maps',
-      maxZoom: 21
+    const center = polygon.length ? polygon[0] : (lastGPS ? [lastGPS.lat,lastGPS.lng] : [11.0, 78.0]);
+    navMap = L.map('navMap', { zoomControl: true, attributionControl: false }).setView(center, 18);
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 20
     }).addTo(navMap);
   }
 
   if (!mapPolyDrawn && polygon.length >= 3) {
-    L.polygon(polygon, {
-      color: '#ffee00', weight: 2.5,
-      fillColor: '#ffee00', fillOpacity: 0.08
-    }).addTo(navMap);
+    L.polygon(polygon, { color: '#E8A33D', weight: 2.5, fillColor: '#E8A33D', fillOpacity: 0.08 }).addTo(navMap);
     const lats = polygon.map(p=>p[0]), lngs = polygon.map(p=>p[1]);
-    navMap.fitBounds([
-      [Math.min(...lats), Math.min(...lngs)],
-      [Math.max(...lats), Math.max(...lngs)]
-    ], { padding: [20,20] });
+    navMap.fitBounds([[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], { padding: [24,24] });
     mapPolyDrawn = true;
   }
 
@@ -382,75 +628,99 @@ function initMapView() {
 function updateMapDot(lat, lng) {
   if (!navMap) return;
   if (gpsMarker) navMap.removeLayer(gpsMarker);
-  gpsMarker = L.circleMarker([lat, lng], {
-    radius: 9, color: '#ffffff', weight: 2.5,
-    fillColor: '#00e676', fillOpacity: 1
-  }).addTo(navMap);
-  navMap.panTo([lat, lng], { animate: true, duration: 0.5 });
+  gpsMarker = L.circleMarker([lat, lng], { radius: 9, color: '#ffffff', weight: 2.5, fillColor: '#00e676', fillOpacity: 1 }).addTo(navMap);
 }
 
-// ── GPS — with smoothing + accuracy filter ────────────────────
-// We keep a small buffer of recent readings and average them
-// to reduce the jumpiness caused by phone GPS noise.
-const GPS_BUFFER_SIZE = 4;   // average last 4 readings
-const GPS_MAX_ACCURACY = 30; // ignore readings worse than 30m
+// ── GPS — smoothed + accuracy filtered ─────────────────────────
+const GPS_BUFFER_SIZE = 4;
+const GPS_MAX_ACCURACY = 30;
 let gpsBuffer = [];
 
 function smoothGPS(lat, lng) {
   gpsBuffer.push({ lat, lng });
   if (gpsBuffer.length > GPS_BUFFER_SIZE) gpsBuffer.shift();
-  const avgLat = gpsBuffer.reduce((s,p) => s + p.lat, 0) / gpsBuffer.length;
-  const avgLng = gpsBuffer.reduce((s,p) => s + p.lng, 0) / gpsBuffer.length;
+  const avgLat = gpsBuffer.reduce((s,p) => s+p.lat,0)/gpsBuffer.length;
+  const avgLng = gpsBuffer.reduce((s,p) => s+p.lng,0)/gpsBuffer.length;
   return { lat: avgLat, lng: avgLng };
 }
 
 function startGPS() {
   gpsBuffer = [];
   const pill = document.getElementById('gpsPill');
-  if (!navigator.geolocation) {
-    pill.textContent = '❌ GPS not available'; pill.className = 'bd'; return;
-  }
+  const text = document.getElementById('gpsText');
+  if (!navigator.geolocation) { text.textContent = 'GPS not available'; pill.className='gps-pill'; return; }
+
   gpsWatcher = navigator.geolocation.watchPosition(pos => {
     const acc = Math.round(pos.coords.accuracy);
-    pill.textContent = `📍 GPS ±${acc}m`;
-    pill.className = acc <= 15 ? 'gd' : (acc <= 30 ? '' : 'bd');
 
-    // Skip very inaccurate readings — they make the dot jump wildly
     if (acc > GPS_MAX_ACCURACY) {
-      pill.textContent = `⏳ Improving GPS… ±${acc}m`;
+      text.textContent = `Improving GPS… ±${acc}m`;
+      pill.className = 'gps-pill warn';
       return;
     }
 
-    // Smooth the position
+    text.textContent = `±${acc}m accuracy`;
+    pill.className = 'gps-pill ' + (acc <= 15 ? 'good' : 'warn');
+
     const smooth = smoothGPS(pos.coords.latitude, pos.coords.longitude);
     lastGPS = smooth;
 
-    if (curMode === 'image') drawFrame();
-    if (curMode === 'map') updateMapDot(smooth.lat, smooth.lng);
-  }, err => {
-    pill.textContent = '❌ Allow location access';
-    pill.className = 'bd';
-  }, {
-    enableHighAccuracy: true,
-    maximumAge: 1000,   // use reading up to 1s old (was 3s)
-    timeout: 15000
-  });
+    if (curLayer === 'index' || curLayer === 'ortho') drawFrame();
+    if (curLayer === 'satellite') updateMapDot(smooth.lat, smooth.lng);
+  }, () => {
+    text.textContent = 'Allow location access to navigate';
+    pill.className = 'gps-pill';
+  }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 });
 }
 
 function stopGPS() {
-  if (gpsWatcher != null) { navigator.geolocation.clearWatch(gpsWatcher); gpsWatcher = null; }
+  if (gpsWatcher != null) navigator.geolocation.clearWatch(gpsWatcher);
+  gpsWatcher = null;
   lastGPS = null;
+  gpsBuffer = [];
 }
 
-// ── HELPERS ───────────────────────────────────────────────────
+// ── COMPASS HEADING (optional enhancement) ─────────────────────
+function startCompass() {
+  const handler = (e) => {
+    if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
+      lastHeading = e.webkitCompassHeading;
+    } else if (e.alpha !== null) {
+      lastHeading = 360 - e.alpha;
+    }
+  };
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().then(state => {
+      if (state === 'granted') window.addEventListener('deviceorientation', handler);
+    }).catch(()=>{});
+  } else {
+    window.addEventListener('deviceorientation', handler);
+  }
+}
+
+// ── WAKE LOCK — keep screen on while navigating ─────────────────
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+  } catch(e) { /* not supported / denied — ignore */ }
+}
+function releaseWakeLock() {
+  if (wakeLock) { try { wakeLock.release(); } catch(e){} wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && document.getElementById('viewer').classList.contains('open')) {
+    requestWakeLock();
+  }
+});
+
+// ── HELPERS ──────────────────────────────────────────────────
 function showErr(msg) {
   document.getElementById('hName').textContent = 'FarmView';
-  document.getElementById('cards').innerHTML =
-    `<div class="empty"><div class="ico">❌</div><p>${msg}</p></div>`;
+  document.getElementById('cards').innerHTML = `<div class="empty"><div class="ico">❌</div><p>${msg}</p></div>`;
 }
 
 window.addEventListener('resize', () => {
-  if (curMode === 'image' && imgLoaded) { fitCanvas(); drawFrame(); }
+  if ((curLayer === 'index' || curLayer === 'ortho') && imgLoaded) { fitCanvas(); drawFrame(); }
 });
 
 init();
