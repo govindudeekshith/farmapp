@@ -70,6 +70,20 @@ input[type=file] { display: none; }
 .preview-thumb { width: 100%; border-radius: 8px; margin-top: 10px; display: none; max-height: 180px; object-fit: contain; background: #000; }
 .preview-thumb.show { display: block; }
 
+.type-toggle { display: flex; gap: 8px; margin-top: 8px; }
+.type-opt {
+  flex: 1; border: 1.5px solid #d0ddd0; background: white; color: #555;
+  border-radius: 10px; padding: 12px 8px; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  transition: all 0.15s;
+}
+.type-opt .ic { font-size: 20px; }
+.type-opt.active { border-color: #1a6b3a; background: #e8f4ec; color: #1a6b3a; }
+
+.type-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+.type-badge.idx { background: #e8f4ec; color: #1a6b3a; }
+.type-badge.ortho { background: #fdf0dc; color: #b3690a; }
+
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: #1a6b3a; color: white; padding: 11px 20px; border-radius: 10px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,0.2); opacity: 0; transition: all 0.3s; z-index: 9999; white-space: nowrap; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.err { background: #c0392b; }
@@ -150,7 +164,16 @@ input[type=file] { display: none; }
   <!-- UPLOAD IMAGE -->
   <div id="panel-upload" class="panel">
     <div class="card">
-      <h2>📸 Upload Index Image</h2>
+      <h2>📸 Upload Field Image</h2>
+      <label>Image Type</label>
+      <div class="type-toggle">
+        <button class="type-opt active" id="typeIndexBtn" onclick="setImgType('index')">
+          <span class="ic">🌿</span> Vegetation Index
+        </button>
+        <button class="type-opt" id="typeOrthoBtn" onclick="setImgType('ortho')">
+          <span class="ic">📷</span> True Color (Orthomosaic)
+        </button>
+      </div>
       <label>Select Farmer</label>
       <select id="uploadFarmer"><option value="">-- select farmer --</option></select>
       <label>Date of Survey</label>
@@ -167,6 +190,7 @@ input[type=file] { display: none; }
       <button class="btn btn-primary" id="uploadBtn" onclick="uploadImage()">📤 Upload Image</button>
     </div>
   </div>
+
 
   <!-- ALL IMAGES -->
   <div id="panel-images" class="panel">
@@ -192,6 +216,13 @@ const GITHUB_USER = 'govindudeekshith';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let parsedKMLCoords = null;
 let selectedImgFile = null;
+let selectedImgType = 'index';
+
+function setImgType(type) {
+  selectedImgType = type;
+  document.getElementById('typeIndexBtn').classList.toggle('active', type === 'index');
+  document.getElementById('typeOrthoBtn').classList.toggle('active', type === 'ortho');
+}
 
 document.getElementById('uploadDate').value = new Date().toISOString().split('T')[0];
 window.onload = () => { loadFarmers(); };
@@ -375,12 +406,13 @@ async function uploadImage() {
     const { error } = await sb.from('farm_images').insert({
       farmer_id: farmerId,
       image_url: data.secure_url,
+      image_type: selectedImgType,
       uploaded_at: date ? new Date(date).toISOString() : new Date().toISOString(),
       notes
     });
     if (error) throw error;
 
-    toast('✅ Image uploaded!');
+    toast('✅ ' + (selectedImgType === 'ortho' ? 'True Color' : 'Index') + ' image uploaded!');
     selectedImgFile = null;
     document.getElementById('previewThumb').classList.remove('show');
     document.getElementById('imgFile').value = '';
@@ -406,7 +438,9 @@ async function loadImages() {
     <div class="img-item">
       <img src="${img.image_url}" loading="lazy">
       <div class="img-meta">
-        <strong>${img.farmers?.name || '—'}</strong>
+        <strong>${img.farmers?.name || '—'}
+          <span class="type-badge ${img.image_type==='ortho'?'ortho':'idx'}">${img.image_type==='ortho'?'True Color':'Index'}</span>
+        </strong>
         ${new Date(img.uploaded_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
         ${img.notes ? `<br>${img.notes}` : ''}
       </div>
