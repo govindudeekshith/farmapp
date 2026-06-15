@@ -73,9 +73,10 @@ body {
 .install-banner {
   margin: 14px 16px 0; background: var(--surface-alt);
   border: 1px solid var(--line); border-radius: 14px;
-  padding: 12px 14px; display: none; align-items: center; gap: 12px;
+  padding: 12px 14px; display: none;
 }
-.install-banner.show { display: flex; }
+.install-banner.show { display: block; }
+.install-banner .ib-row { display: flex; align-items: center; gap: 12px; }
 .install-banner .ib-icon { font-size: 22px; flex-shrink: 0; }
 .install-banner .ib-text { flex: 1; font-size: 12.5px; line-height: 1.45; color: var(--ink); }
 .install-banner .ib-text b { display: block; font-size: 13.5px; margin-bottom: 1px; }
@@ -86,6 +87,12 @@ body {
 .install-banner .ib-close {
   background: none; color: var(--ink-soft); font-size: 18px; padding: 0 2px; font-weight: 400;
 }
+.ib-steps {
+  display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);
+  font-size: 12.5px; color: var(--ink-soft); line-height: 1.7;
+}
+.ib-steps.show { display: block; }
+.ib-steps b { color: var(--ink); }
 
 /* ── SECTION ────────────────────────────────────────────── */
 .section-label {
@@ -195,9 +202,10 @@ body {
   padding: 9px 17px; border-radius: 24px; display: flex; align-items: center; gap: 7px;
   white-space: nowrap; z-index: 5; box-shadow: 0 4px 16px rgba(0,0,0,0.25);
 }
-.gps-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--alert); flex-shrink: 0; transition: background 0.2s; }
+.gps-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: #A8B8A2; flex-shrink: 0; transition: background 0.2s; }
 .gps-pill.good .dot { background: var(--good); box-shadow: 0 0 0 4px rgba(61,220,132,0.2); }
 .gps-pill.warn .dot { background: var(--highlight); }
+.gps-pill.bad .dot { background: var(--alert); }
 
 /* legend pill */
 .legend-pill {
@@ -232,13 +240,16 @@ body {
 </header>
 
 <div class="install-banner" id="installBanner">
-  <div class="ib-icon">📲</div>
-  <div class="ib-text">
-    <b>Add FarmView to your home screen</b>
-    <span id="installText">Open it like an app — faster, full screen, works offline.</span>
+  <div class="ib-row">
+    <div class="ib-icon">📲</div>
+    <div class="ib-text">
+      <b>Add FarmView to your home screen</b>
+      <span id="installText">Open it like an app — faster, full screen, works offline.</span>
+    </div>
+    <button id="installBtn">Install</button>
+    <button class="ib-close" onclick="dismissInstall()">✕</button>
   </div>
-  <button id="installBtn">Install</button>
-  <button class="ib-close" onclick="dismissInstall()">✕</button>
+  <div class="ib-steps" id="ibSteps"></div>
 </div>
 
 <div class="section-label">Field Reports</div>
@@ -276,6 +287,7 @@ body {
 
     <div class="legend-pill" id="legendPill" style="display:none">
       <div class="lg-row"><span class="sw" style="background:#00e676"></span> You are here</div>
+      <div class="lg-row"><span class="sw" style="background:rgba(0,230,118,0.3); border:1px solid rgba(0,230,118,0.6)"></span> GPS accuracy range</div>
       <div class="lg-row"><span class="sw" style="background:var(--highlight)"></span> Plot boundary</div>
     </div>
 
@@ -301,6 +313,16 @@ let deferredInstall = null;
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
 
+const ANDROID_STEPS = `<b>To install on Android:</b><br>
+1. Tap the <b>⋮</b> menu (top-right of Chrome)<br>
+2. Tap <b>"Install app"</b> or <b>"Add to Home screen"</b><br>
+3. Tap <b>"Install"</b> in the popup`;
+
+const IOS_STEPS = `<b>To install on iPhone:</b><br>
+1. Tap the <b>Share</b> icon ⬆️ (bottom toolbar)<br>
+2. Scroll down and tap <b>"Add to Home Screen"</b><br>
+3. Tap <b>"Add"</b> in the top right`;
+
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredInstall = e;
@@ -310,14 +332,23 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 document.getElementById('installBtn').onclick = async () => {
+  const steps = document.getElementById('ibSteps');
+
   if (deferredInstall) {
     deferredInstall.prompt();
-    await deferredInstall.userChoice;
+    const choice = await deferredInstall.userChoice;
     deferredInstall = null;
-    document.getElementById('installBanner').classList.remove('show');
-  } else if (isIOS) {
-    document.getElementById('installText').textContent =
-      'Tap the Share icon ⬆️ below, then "Add to Home Screen".';
+    if (choice && choice.outcome === 'accepted') {
+      document.getElementById('installBanner').classList.remove('show');
+      return;
+    }
+    // Chrome showed nothing or user dismissed — show manual steps as backup
+    steps.innerHTML = ANDROID_STEPS;
+    steps.classList.add('show');
+  } else {
+    // No native prompt available — show manual steps
+    steps.innerHTML = isIOS ? IOS_STEPS : ANDROID_STEPS;
+    steps.classList.add('show');
   }
 };
 
@@ -342,11 +373,13 @@ let gpsWatcher = null;
 let wakeLock = null;
 let navMap = null;
 let gpsMarker = null;
+let gpsAccuracyCircle = null;
 let mapPolyDrawn = false;
 let navImg = new Image();
 let imgLoaded = false;
 let currentGroup = null;
 let lastHeading = null;
+let compassStarted = false;
 
 const LAYER_ORDER = ['index', 'ortho', 'satellite'];
 
@@ -557,7 +590,7 @@ function drawFrame() {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    if (lastGPS) drawDot(ctx, lastGPS.lat, lastGPS.lng, bounds, b);
+    if (lastGPS) drawDot(ctx, lastGPS, bounds, b);
   }
 }
 
@@ -571,13 +604,32 @@ function gpsToPixel(lat, lng, bbox, img) {
   return [px, py];
 }
 
-function drawDot(ctx, lat, lng, imgBounds, bbox) {
+// Convert a real-world distance (metres) into on-screen pixels for the
+// current image, based on how many degrees of lat/lng the image spans.
+function metersToPixels(meters, bbox, img) {
+  const latMid = (bbox.minLat + bbox.maxLat) / 2;
+  const metersPerDegLat = 111320;
+  const metersPerDegLng = 111320 * Math.cos(latMid * Math.PI / 180);
+  const pxPerDegLat = img.ih / (bbox.maxLat - bbox.minLat);
+  const pxPerDegLng = img.iw / (bbox.maxLng - bbox.minLng);
+  const pxFromLat = (meters / metersPerDegLat) * pxPerDegLat;
+  const pxFromLng = (meters / metersPerDegLng) * pxPerDegLng;
+  return (pxFromLat + pxFromLng) / 2;
+}
+
+function drawDot(ctx, gps, imgBounds, bbox) {
+  const { lat, lng, acc } = gps;
   const [px, py] = gpsToPixel(lat, lng, bbox, imgBounds);
   const inside = lat >= bbox.minLat && lat <= bbox.maxLat && lng >= bbox.minLng && lng <= bbox.maxLng;
   const col = inside ? '#00e676' : '#ff5252';
 
-  ctx.beginPath(); ctx.arc(px, py, 17, 0, Math.PI*2);
-  ctx.fillStyle = inside ? 'rgba(0,230,118,0.16)' : 'rgba(255,82,82,0.16)'; ctx.fill();
+  // Accuracy circle — shows the real-world uncertainty radius
+  if (acc) {
+    const r = Math.min(Math.max(metersToPixels(acc, bbox, imgBounds), 14), Math.min(imgBounds.iw, imgBounds.ih) * 0.4);
+    ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI*2);
+    ctx.fillStyle = inside ? 'rgba(0,230,118,0.12)' : 'rgba(255,82,82,0.12)'; ctx.fill();
+    ctx.strokeStyle = inside ? 'rgba(0,230,118,0.4)' : 'rgba(255,82,82,0.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
 
   ctx.beginPath(); ctx.arc(px, py, 9, 0, Math.PI*2);
   ctx.fillStyle = inside ? 'rgba(0,230,118,0.35)' : 'rgba(255,82,82,0.35)'; ctx.fill();
@@ -586,7 +638,7 @@ function drawDot(ctx, lat, lng, imgBounds, bbox) {
   ctx.fillStyle = col; ctx.fill();
   ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
 
-  // Heading arrow (if compass available)
+  // Heading arrow (compass or GPS course, if available)
   if (lastHeading !== null) {
     const rad = (lastHeading * Math.PI) / 180;
     const len = 15;
@@ -608,68 +660,117 @@ function drawDot(ctx, lat, lng, imgBounds, bbox) {
 function initSatellite() {
   if (!navMap) {
     const center = polygon.length ? polygon[0] : (lastGPS ? [lastGPS.lat,lastGPS.lng] : [11.0, 78.0]);
-    navMap = L.map('navMap', { zoomControl: true, attributionControl: false }).setView(center, 18);
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 20
+    navMap = L.map('navMap', { zoomControl: true, attributionControl: false, maxZoom: 20 }).setView(center, 17);
+
+    // Google hybrid (satellite + roads/place labels) — much sharper over
+    // Indian farmland than most free satellite sources.
+    L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      subdomains: ['mt0','mt1','mt2','mt3']
     }).addTo(navMap);
   }
 
   if (!mapPolyDrawn && polygon.length >= 3) {
-    L.polygon(polygon, { color: '#E8A33D', weight: 2.5, fillColor: '#E8A33D', fillOpacity: 0.08 }).addTo(navMap);
+    L.polygon(polygon, { color: '#E8A33D', weight: 3, fillColor: '#E8A33D', fillOpacity: 0.07 }).addTo(navMap);
     const lats = polygon.map(p=>p[0]), lngs = polygon.map(p=>p[1]);
-    navMap.fitBounds([[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]], { padding: [24,24] });
+    // Cap zoom so tiles stay sharp even on a small plot
+    navMap.fitBounds(
+      [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+      { padding: [30,30], maxZoom: 19 }
+    );
     mapPolyDrawn = true;
   }
 
-  setTimeout(() => navMap.invalidateSize(), 150);
-  if (lastGPS) updateMapDot(lastGPS.lat, lastGPS.lng);
+  // Leaflet needs a correctly-sized container — the pane may have been
+  // display:none a moment ago, so refresh size a few times as layout settles.
+  [50, 200, 500].forEach(t => setTimeout(() => navMap.invalidateSize(), t));
+  if (lastGPS) updateMapDot(lastGPS);
 }
 
-function updateMapDot(lat, lng) {
+function updateMapDot(gps) {
   if (!navMap) return;
+  const { lat, lng, acc } = gps;
   if (gpsMarker) navMap.removeLayer(gpsMarker);
+  if (gpsAccuracyCircle) navMap.removeLayer(gpsAccuracyCircle);
+
+  if (acc) {
+    gpsAccuracyCircle = L.circle([lat, lng], {
+      radius: acc, color: '#00e676', weight: 1, fillColor: '#00e676', fillOpacity: 0.1
+    }).addTo(navMap);
+  }
   gpsMarker = L.circleMarker([lat, lng], { radius: 9, color: '#ffffff', weight: 2.5, fillColor: '#00e676', fillOpacity: 1 }).addTo(navMap);
 }
 
-// ── GPS — smoothed + accuracy filtered ─────────────────────────
-const GPS_BUFFER_SIZE = 4;
-const GPS_MAX_ACCURACY = 30;
+// ── GPS — accuracy-weighted smoothing ───────────────────────────
+/*
+  Phone GPS readings jump around by a few metres from one second to the
+  next. To make the dot feel "precise" and steady:
+   1. We discard readings worse than GPS_MAX_ACCURACY (e.g. a stray
+      network-based fix of ±300m).
+   2. We keep the last few readings and average their positions,
+      weighting more ACCURATE readings much more heavily (1/accuracy²).
+   3. We report the BEST recent accuracy as the displayed/circle radius,
+      since the weighted average is usually tighter than any single
+      reading's stated accuracy.
+*/
+const GPS_BUFFER_SIZE = 5;
+const GPS_MAX_ACCURACY = 35;
 let gpsBuffer = [];
 
-function smoothGPS(lat, lng) {
-  gpsBuffer.push({ lat, lng });
+function smoothGPS(lat, lng, acc) {
+  gpsBuffer.push({ lat, lng, acc });
   if (gpsBuffer.length > GPS_BUFFER_SIZE) gpsBuffer.shift();
-  const avgLat = gpsBuffer.reduce((s,p) => s+p.lat,0)/gpsBuffer.length;
-  const avgLng = gpsBuffer.reduce((s,p) => s+p.lng,0)/gpsBuffer.length;
-  return { lat: avgLat, lng: avgLng };
+
+  let wSum = 0, latSum = 0, lngSum = 0;
+  gpsBuffer.forEach(p => {
+    const w = 1 / (p.acc * p.acc);
+    wSum += w; latSum += p.lat * w; lngSum += p.lng * w;
+  });
+
+  const bestAcc = Math.min(...gpsBuffer.map(p => p.acc));
+  return { lat: latSum / wSum, lng: lngSum / wSum, acc: bestAcc };
 }
 
 function startGPS() {
   gpsBuffer = [];
   const pill = document.getElementById('gpsPill');
   const text = document.getElementById('gpsText');
-  if (!navigator.geolocation) { text.textContent = 'GPS not available'; pill.className='gps-pill'; return; }
+  if (!navigator.geolocation) {
+    text.textContent = 'GPS not available on this device';
+    pill.className = 'gps-pill bad';
+    return;
+  }
+
+  text.textContent = 'Getting GPS…';
+  pill.className = 'gps-pill';
 
   gpsWatcher = navigator.geolocation.watchPosition(pos => {
-    const acc = Math.round(pos.coords.accuracy);
+    const rawAcc = pos.coords.accuracy;
 
-    if (acc > GPS_MAX_ACCURACY) {
-      text.textContent = `Improving GPS… ±${acc}m`;
+    if (rawAcc > GPS_MAX_ACCURACY) {
+      text.textContent = `Improving GPS… ±${Math.round(rawAcc)}m`;
       pill.className = 'gps-pill warn';
       return;
     }
 
-    text.textContent = `±${acc}m accuracy`;
-    pill.className = 'gps-pill ' + (acc <= 15 ? 'good' : 'warn');
-
-    const smooth = smoothGPS(pos.coords.latitude, pos.coords.longitude);
+    const smooth = smoothGPS(pos.coords.latitude, pos.coords.longitude, rawAcc);
     lastGPS = smooth;
 
+    // Prefer GPS course-over-ground for heading when actually moving —
+    // it's far more reliable than the phone's magnetometer compass.
+    if (pos.coords.heading !== null && pos.coords.speed !== null && pos.coords.speed > 0.3) {
+      lastHeading = pos.coords.heading;
+    }
+
+    const r = Math.round(smooth.acc);
+    text.textContent = `±${r}m accuracy`;
+    pill.className = 'gps-pill ' + (r <= 8 ? 'good' : (r <= 20 ? '' : 'warn'));
+
     if (curLayer === 'index' || curLayer === 'ortho') drawFrame();
-    if (curLayer === 'satellite') updateMapDot(smooth.lat, smooth.lng);
+    if (curLayer === 'satellite') updateMapDot(smooth);
   }, () => {
     text.textContent = 'Allow location access to navigate';
-    pill.className = 'gps-pill';
+    pill.className = 'gps-pill bad';
   }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 });
 }
 
@@ -677,11 +778,15 @@ function stopGPS() {
   if (gpsWatcher != null) navigator.geolocation.clearWatch(gpsWatcher);
   gpsWatcher = null;
   lastGPS = null;
+  lastHeading = null;
   gpsBuffer = [];
 }
 
-// ── COMPASS HEADING (optional enhancement) ─────────────────────
+// ── COMPASS HEADING (fallback when not moving) ──────────────────
 function startCompass() {
+  if (compassStarted) return;
+  compassStarted = true;
+
   const handler = (e) => {
     if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
       lastHeading = e.webkitCompassHeading;
@@ -721,6 +826,7 @@ function showErr(msg) {
 
 window.addEventListener('resize', () => {
   if ((curLayer === 'index' || curLayer === 'ortho') && imgLoaded) { fitCanvas(); drawFrame(); }
+  if (curLayer === 'satellite' && navMap) navMap.invalidateSize();
 });
 
 init();
