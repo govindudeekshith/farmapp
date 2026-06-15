@@ -1,10 +1,9 @@
-const CACHE_NAME = 'farmview-v1';
+const CACHE_NAME = 'farmview-v2';
 const PRECACHE = [
-  './',
-  './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './apple-touch-icon.png'
 ];
 
 self.addEventListener('install', (event) => {
@@ -23,21 +22,35 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Network-first for API/data calls, cache-first for app shell & images
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
 
-  // Don't cache Supabase API calls — always fetch fresh data
-  if (url.includes('supabase.co')) {
+  // Never cache Supabase API calls — always fetch fresh data
+  if (url.includes('supabase.co')) return;
+
+  // App shell (HTML / navigation) — NETWORK FIRST.
+  // This guarantees the farmer always gets the latest version when online,
+  // and falls back to the cached copy only if offline.
+  if (event.request.mode === 'navigate' || url.endsWith('/') || url.endsWith('index.html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
+  // Everything else (icons, field images, map tiles) — CACHE FIRST,
+  // so previously-viewed field maps still open offline.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
-        // Cache successful responses for images and tiles (so layers work once loaded)
-        if (response.ok && (event.request.destination === 'image' || url.includes('.png') || url.includes('.jpg'))) {
+        if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
